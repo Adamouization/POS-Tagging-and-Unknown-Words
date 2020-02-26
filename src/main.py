@@ -4,6 +4,8 @@ from src.helpers import download_brown_corpus
 
 
 def main():
+    print("Number of words in Brown corpus = {}".format(len(brown.words())))
+
     sentence = brown.tagged_sents(tagset='universal')
     first = sentence[0]
     print("\nfirst")
