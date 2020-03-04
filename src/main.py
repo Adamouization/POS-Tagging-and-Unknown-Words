@@ -1,18 +1,22 @@
 from nltk.corpus import brown
+from nltk.corpus.reader.util import ConcatenatedCorpusView
 
 from src.helpers import download_brown_corpus, print_corpus_information
 
 
 def main():
-    # tag_transition_occurrences = count_tag_transition_occurrences()
-    word_tag_pairs = count_word_tag_pairs()
+    tagged_sentences = brown.tagged_sents(tagset='universal')
+    sentences = brown.sents()
+
+    tag_transition_occurrences = count_tag_transition_occurrences(tagged_sentences)
+    word_tag_pairs = count_word_tag_pairs(tagged_sentences)
 
 
-def count_tag_transition_occurrences():
+def count_tag_transition_occurrences(tagged_sentences: ConcatenatedCorpusView) -> dict:
     tag_transition_occurrences = dict()
 
     # Loop through each sentence in the Brown corpus.
-    for sentence in brown.tagged_sents(tagset='universal'):
+    for sentence in tagged_sentences:
 
         # Collect all tags in the sentence.
         tags = [t for (_, t) in sentence]
@@ -40,11 +44,11 @@ def count_tag_transition_occurrences():
     return tag_transition_occurrences
 
 
-def count_word_tag_pairs():
+def count_word_tag_pairs(tagged_sentences: ConcatenatedCorpusView) -> dict:
     word_tag_pairs_occurrences = dict()
 
     # Loop through each sentence in the Brown corpus.
-    for sentence in brown.tagged_sents(tagset='universal'):
+    for sentence in tagged_sentences:
 
         # Loop through each tagged word in the sentence.
         for tagged_word in sentence:
