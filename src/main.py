@@ -1,3 +1,6 @@
+import os.path
+import pickle
+
 from nltk.corpus import brown
 from nltk.corpus.reader.util import ConcatenatedCorpusView
 
@@ -6,10 +9,29 @@ from src.helpers import download_brown_corpus, print_corpus_information
 
 def main():
     tagged_sentences = brown.tagged_sents(tagset='universal')
-    sentences = brown.sents()
+    # sentences = brown.sents()
 
-    tag_transition_occurrences = count_tag_transition_occurrences(tagged_sentences)
-    word_tag_pairs = count_word_tag_pairs(tagged_sentences)
+    transition_occurences_file_path = "data_objects/transition_occurences.pkl"
+    if os.path.isfile(transition_occurences_file_path):
+        with open(transition_occurences_file_path, 'rb') as f:
+            transition_occurences = pickle.load(f)
+        print("File '{}' already exists, loaded from memory.".format(transition_occurences_file_path))
+    else:
+        transition_occurences = count_tag_transition_occurrences(tagged_sentences)
+        with open(transition_occurences_file_path, 'wb') as f:
+            pickle.dump(transition_occurences, f)
+
+    emission_occurences_file_path = "data_objects/emission_occurences.pkl"
+    if os.path.isfile(emission_occurences_file_path):
+        with open(emission_occurences_file_path, 'rb') as f:
+            word_tag_pairs = pickle.load(f)
+        print("File '{}' already exists, loaded from memory.".format(emission_occurences_file_path))
+    else:
+        word_tag_pairs = count_word_tag_pairs(tagged_sentences)
+        with open(emission_occurences_file_path, 'wb') as f:
+            pickle.dump(word_tag_pairs, f)
+
+    pass
 
 
 def count_tag_transition_occurrences(tagged_sentences: ConcatenatedCorpusView) -> dict:
