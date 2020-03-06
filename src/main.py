@@ -1,37 +1,80 @@
+from itertools import chain
 import os.path
 import pickle
+from typing import Tuple
 
 from nltk.corpus import brown
 from nltk.corpus.reader.util import ConcatenatedCorpusView
 
-from src.helpers import download_brown_corpus, print_corpus_information
+from src.helpers import *
+
+# Constants
+START_OF_SENTENCE = "<s>"
+START_END_OF_SENTENCE = "</s>"
+START_TAG_TUPLE = ("<s>", "<s>")
+END_TAG_TUPLE = ("</s>", "</s>")
 
 
-def main():
+def main() -> None:
+    """
+
+    :return:
+    """
+    # Only need to do this once.
+    # download_brown_corpus()
+
+    # Retrieve tagged sentences from the Brown corpus
     tagged_sentences = brown.tagged_sents(tagset='universal')
-    # sentences = brown.sents()
 
-    transition_occurences_file_path = "data_objects/transition_occurences.pkl"
-    if os.path.isfile(transition_occurences_file_path):
-        with open(transition_occurences_file_path, 'rb') as f:
+    # Split data into a training and a testing set (default split 95/5 sentences).
+    training_set, testing_set = split_train_test_data(tagged_sentences)
+    print_number_of_sentences(training_set, "training dataset")
+    print_number_of_sentences(testing_set, "testing dataset")
+
+    # Count number of tag transitions
+    transition_occurrences_file_path = "data_objects/transition_occurences.pkl"
+    if os.path.isfile(transition_occurrences_file_path):
+        with open(transition_occurrences_file_path, 'rb') as f:
             transition_occurences = pickle.load(f)
-        print("File '{}' already exists, loaded from memory.".format(transition_occurences_file_path))
+        print("File '{}' already exists, loaded from memory.".format(transition_occurrences_file_path))
     else:
         transition_occurences = count_tag_transition_occurrences(tagged_sentences)
-        with open(transition_occurences_file_path, 'wb') as f:
+        with open(transition_occurrences_file_path, 'wb') as f:
             pickle.dump(transition_occurences, f)
 
-    emission_occurences_file_path = "data_objects/emission_occurences.pkl"
-    if os.path.isfile(emission_occurences_file_path):
-        with open(emission_occurences_file_path, 'rb') as f:
+    # Count number of emissions.
+    emission_occurrences_file_path = "data_objects/emission_occurences.pkl"
+    if os.path.isfile(emission_occurrences_file_path):
+        with open(emission_occurrences_file_path, 'rb') as f:
             word_tag_pairs = pickle.load(f)
-        print("File '{}' already exists, loaded from memory.".format(emission_occurences_file_path))
+        print("File '{}' already exists, loaded from memory.".format(emission_occurrences_file_path))
     else:
         word_tag_pairs = count_word_tag_pairs(tagged_sentences)
-        with open(emission_occurences_file_path, 'wb') as f:
+        with open(emission_occurrences_file_path, 'wb') as f:
             pickle.dump(word_tag_pairs, f)
 
     pass
+
+
+def split_train_test_data(sentences: ConcatenatedCorpusView, train_size: int = 10000, test_size: int = 500) \
+        -> Tuple[list, list]:
+    training_set = list(sentences[:train_size])
+    test_set = list(sentences[train_size:train_size + test_size])
+
+    # Append <s> and </s> (tagged with their POS) to the training set.
+    for sentence in training_set:
+        sentence.insert(0, START_TAG_TUPLE)
+        sentence.insert(len(sentence), END_TAG_TUPLE)
+
+    # Append <s> and </s> (tagged with their POS) to the testing set.
+    for sentence in test_set:
+        sentence.insert(0, START_TAG_TUPLE)
+        sentence.insert(len(sentence), END_TAG_TUPLE)
+
+    training_words = list(chain.from_iterable(training_set))
+    test_words = list(chain.from_iterable(test_set))
+
+    return training_words, test_words
 
 
 def count_tag_transition_occurrences(tagged_sentences: ConcatenatedCorpusView) -> dict:
