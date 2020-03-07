@@ -65,33 +65,31 @@ def split_train_test_data(sentences: ConcatenatedCorpusView, train_size: int = 1
 
 
 def train_tagger(words: list, tags: list) -> Tuple[Dict[Any, Dict[str, Any]], Dict[Any, Dict[str, Any]]]:
-    # Count number of tag transitions.
-    transition_occurrences_file_path = "data_objects/transition_occurences.pkl"
-    if os.path.isfile(transition_occurrences_file_path):
-        with open(transition_occurrences_file_path, 'rb') as f:
-            transition_occurences = pickle.load(f)
-        print("File '{}' already exists, loaded from memory.".format(transition_occurrences_file_path))
+    # Count number of tag transitions and get probabilities of tag transitions.
+    # If tag transition probabilities were already calculated, then load them into memory, else calculate them.
+    transition_probabilities_file_path = "data_objects/transition_probabilities.pkl"
+    if os.path.isfile(transition_probabilities_file_path):
+        with open(transition_probabilities_file_path, 'rb') as f:
+            transition_probabilities = pickle.load(f)
+        print("File '{}' already exists, loaded from memory.".format(transition_probabilities_file_path))
     else:
-        transition_occurences = count_tag_transition_occurrences(tags)
-        with open(transition_occurrences_file_path, 'wb') as f:
-            pickle.dump(transition_occurences, f)
+        transition_occurrences = count_tag_transition_occurrences(tags)
+        tag_transition_probabilities = get_tag_transition_probability(transition_occurrences)
+        with open(transition_probabilities_file_path, 'wb') as f:
+            pickle.dump(tag_transition_probabilities, f)
 
-    # Get probabilities of tag transitions.
-    tag_transition_probabilities = get_tag_transition_probability(transition_occurences)
-
-    # Count number of emissions.
-    emission_occurrences_file_path = "data_objects/emission_occurences.pkl"
-    if os.path.isfile(emission_occurrences_file_path):
-        with open(emission_occurrences_file_path, 'rb') as f:
-            emission_occurences = pickle.load(f)
-        print("File '{}' already exists, loaded from memory.".format(emission_occurrences_file_path))
+    # Count number of word emissions and get probabilities of emissions.
+    # If word emission probabilities were already calculated, then load them into memory, else calculate them.
+    emission_probabilities_file_path = "data_objects/emission_probabilities.pkl"
+    if os.path.isfile(emission_probabilities_file_path):
+        with open(emission_probabilities_file_path, 'rb') as f:
+            emission_probabilities = pickle.load(f)
+        print("File '{}' already exists, loaded from memory.".format(emission_probabilities_file_path))
     else:
-        emission_occurences = count_emission_occurrences(words, tags)
-        with open(emission_occurrences_file_path, 'wb') as f:
-            pickle.dump(emission_occurences, f)
-
-    # Get probabilities of emissions.
-    emission_probabilities = get_emission_probabilities(emission_occurences)
+        emission_occurrences = count_emission_occurrences(words, tags)
+        emission_probabilities = get_emission_probabilities(emission_occurrences)
+        with open(emission_probabilities_file_path, 'wb') as f:
+            pickle.dump(emission_probabilities, f)
 
     return tag_transition_probabilities, emission_probabilities
 
