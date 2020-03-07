@@ -275,7 +275,7 @@ def test_tagger(testing_set: list, unique_training_words: list, tag_transition_p
     predicted_tags = backtrace(viterbi_matrix)
 
     # Print the accuracy.
-    tagging_accuracy = round(accuracy(predicted_tags, testing_set), 2)
+    tagging_accuracy = round(calculate_accuracy(predicted_tags, testing_set), 2)
     print("POS Tagging accuracy on test: {}%".format(tagging_accuracy))
 
 
@@ -366,7 +366,7 @@ def backtrace(viterbi_matrix: dict) -> list:
     return predicted_tags
 
 
-def accuracy(predicted: list, actual: list) -> float:
+def calculate_accuracy(predicted: list, actual: list) -> float:
     """
     Compare the tags predicted from the Viterbi back-tracing algorithm to the tagged version of the testing set.
     :param predicted:
