@@ -9,9 +9,8 @@ import pandas as pd
 
 from src.helpers import *
 
+
 # Constants
-START_OF_SENTENCE = "<s>"
-START_END_OF_SENTENCE = "</s>"
 START_TAG_TUPLE = ("<s>", "<s>")
 END_TAG_TUPLE = ("</s>", "</s>")
 
