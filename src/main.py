@@ -32,20 +32,17 @@ def main() -> None:
     print_number_of_sentences(training_set, "training dataset")
     print_number_of_sentences(testing_set, "testing dataset")
 
-    # Store all words and all tags from the training dataset in a single ordered list.
-    training_words = [w for (w, _) in training_set]
-    unique_training_words = list(set(training_words))
-    training_tags = [t for (_, t) in training_set]
-
     # Train the POS tagger by generating the tag transition and word emission probability matrices of the HMM.
-    tag_transition_probabilities, emission_probabilities = train_tagger(training_words, training_tags)
+    tag_transition_probabilities, emission_probabilities = train_tagger(training_set)
 
     # Test the POS tagger on the testing data using the Viterbi back-tracing algorithm.
+    unique_training_words = list(set([w for (w, _) in training_set]))
     test_tagger(testing_set, unique_training_words, tag_transition_probabilities, emission_probabilities)
 
 
 def split_train_test_data(sentences: ConcatenatedCorpusView, train_size: int = 10000, test_size: int = 500) \
         -> Tuple[list, list]:
+    # Create lists for the training/testing sets based on the specified size.
     training_set = list(sentences[:train_size])
     test_set = list(sentences[train_size:train_size + test_size])
 
@@ -65,7 +62,11 @@ def split_train_test_data(sentences: ConcatenatedCorpusView, train_size: int = 1
     return training_words, test_words
 
 
-def train_tagger(words: list, tags: list) -> Tuple[Dict[Any, Dict[str, Any]], Dict[Any, Dict[str, Any]]]:
+def train_tagger(training_set: list) -> Tuple[Dict[Any, Dict[str, Any]], Dict[Any, Dict[str, Any]]]:
+    # Store all words and all tags from the training dataset in a ordered lists.
+    training_words = [w for (w, _) in training_set]
+    training_tags = [t for (_, t) in training_set]
+
     # Count number of tag transitions and get probabilities of tag transitions.
     # If tag transition probabilities were already calculated, then load them into memory, else calculate them.
     transition_probabilities_file_path = "data_objects/transition_probabilities.pkl"
@@ -74,7 +75,7 @@ def train_tagger(words: list, tags: list) -> Tuple[Dict[Any, Dict[str, Any]], Di
             tag_transition_probabilities = pickle.load(f)
         print("File '{}' already exists, loaded from memory.".format(transition_probabilities_file_path))
     else:
-        transition_occurrences = count_tag_transition_occurrences(tags)
+        transition_occurrences = count_tag_transition_occurrences(training_tags)
         tag_transition_probabilities = get_tag_transition_probability(transition_occurrences)
         with open(transition_probabilities_file_path, 'wb') as f:
             pickle.dump(tag_transition_probabilities, f)
@@ -87,11 +88,12 @@ def train_tagger(words: list, tags: list) -> Tuple[Dict[Any, Dict[str, Any]], Di
             emission_probabilities = pickle.load(f)
         print("File '{}' already exists, loaded from memory.".format(emission_probabilities_file_path))
     else:
-        emission_occurrences = count_emission_occurrences(words, tags)
+        emission_occurrences = count_emission_occurrences(training_words, training_tags)
         emission_probabilities = get_emission_probabilities(emission_occurrences)
         with open(emission_probabilities_file_path, 'wb') as f:
             pickle.dump(emission_probabilities, f)
 
+    # Return the HMMs tag transition and word emission probability matrices.
     return tag_transition_probabilities, emission_probabilities
 
 
@@ -215,11 +217,9 @@ def get_emission_probabilities(emissions):
 
 
 def test_tagger(testing_set, unique_training_words, tag_transition_probabilities, emission_probabilities):
-    # get the list of words from test list
+    # Get the list of words and tags from the testing set.
     testing_words = [w for (w, _) in testing_set]
     testing_tags = [t for (_, t) in testing_set]
-
-    print("num_sentences: {}".format(sum(x == "<s>" for x in testing_words)))
 
     viterbi_matrix = viterbi_algorithm(testing_words, unique_training_words, testing_tags, tag_transition_probabilities, emission_probabilities)
 
