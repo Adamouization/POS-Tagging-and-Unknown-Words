@@ -1,3 +1,4 @@
+import argparse
 from itertools import chain
 import os.path
 import pickle
@@ -7,6 +8,7 @@ from nltk.corpus import brown
 from nltk.corpus.reader.util import ConcatenatedCorpusView
 import pandas as pd
 
+import src.config as config
 from src.helpers import *
 
 
@@ -20,6 +22,8 @@ def main() -> None:
     Program entry point.
     :return: None.
     """
+    parse_command_line_arguments()
+
     # Only need to do this once.
     # download_brown_corpus()
     # print_corpus_information(brown)
@@ -29,8 +33,9 @@ def main() -> None:
 
     # Split data into a training and a testing set (default split 95/5 sentences).
     training_set, testing_set = split_train_test_data(tagged_sentences)
-    print_number_of_sentences(training_set, "training dataset")
-    print_number_of_sentences(testing_set, "testing dataset")
+    if config.debug:
+        print_number_of_sentences(training_set, "training dataset")
+        print_number_of_sentences(testing_set, "testing dataset")
 
     # Train the POS tagger by generating the tag transition and word emission probability matrices of the HMM.
     tag_transition_probabilities, emission_probabilities = train_tagger(training_set)
@@ -38,6 +43,24 @@ def main() -> None:
     # Test the POS tagger on the testing data using the Viterbi back-tracing algorithm.
     unique_training_words = list(set([w for (w, _) in training_set]))
     test_tagger(testing_set, unique_training_words, tag_transition_probabilities, emission_probabilities)
+
+
+def parse_command_line_arguments() -> None:
+    """
+    Parse command line arguments and save their state in config.py.
+    :return: None
+    """
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-r", "--recalculate",
+                        action="store_true",
+                        help="Include this flag to recalculate the HMM's tag transition and word emission probability "
+                             "matrices. Otherwise, previously trained versions will be used.")
+    parser.add_argument("-d", "--debug",
+                        action="store_true",
+                        help="Include this flag additional print statements and data for debugging purposes.")
+    args = parser.parse_args()
+    config.recalculate = args.recalculate
+    config.debug = args.debug
 
 
 def split_train_test_data(sentences: ConcatenatedCorpusView, train_size: int = 10000, test_size: int = 500) \
@@ -82,7 +105,7 @@ def train_tagger(training_set: list) -> Tuple[Dict[Any, Dict[str, Any]], Dict[An
     # Count number of tag transitions and get probabilities of tag transitions.
     # If tag transition probabilities were already calculated, then load them into memory, else calculate them.
     transition_probabilities_file_path = "data_objects/transition_probabilities.pkl"
-    if os.path.isfile(transition_probabilities_file_path):
+    if os.path.isfile(transition_probabilities_file_path) and not config.recalculate:
         with open(transition_probabilities_file_path, 'rb') as f:
             tag_transition_probabilities = pickle.load(f)
         print("File '{}' already exists, loaded from memory.".format(transition_probabilities_file_path))
@@ -95,7 +118,7 @@ def train_tagger(training_set: list) -> Tuple[Dict[Any, Dict[str, Any]], Dict[An
     # Count number of word emissions and get probabilities of emissions.
     # If word emission probabilities were already calculated, then load them into memory, else calculate them.
     emission_probabilities_file_path = "data_objects/emission_probabilities.pkl"
-    if os.path.isfile(emission_probabilities_file_path):
+    if os.path.isfile(emission_probabilities_file_path) and not config.recalculate:
         with open(emission_probabilities_file_path, 'rb') as f:
             emission_probabilities = pickle.load(f)
         print("File '{}' already exists, loaded from memory.".format(emission_probabilities_file_path))
