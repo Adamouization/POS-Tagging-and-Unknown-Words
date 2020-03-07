@@ -22,6 +22,7 @@ def main() -> None:
     """
     # Only need to do this once.
     # download_brown_corpus()
+    # print_corpus_information(brown)
 
     # Retrieve tagged sentences from the Brown corpus
     tagged_sentences = brown.tagged_sents(tagset='universal')
@@ -35,8 +36,10 @@ def main() -> None:
     words = [w for (w, _) in training_set]
     tags = [t for (_, t) in training_set]
 
+    # Train the POS tagger by generating the tag transition and word emission probability matrices of the HMM.
     tag_transition_probabilities, emission_probabilities = train_tagger(words, tags)
 
+    # Test the POS tagger on the testing data using the Viterbi back-tracing algorithm.
     test_tagger(testing_set, words, tags, tag_transition_probabilities, emission_probabilities)
 
 
