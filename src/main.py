@@ -31,9 +31,13 @@ def main() -> None:
     print_number_of_sentences(training_set, "training dataset")
     print_number_of_sentences(testing_set, "testing dataset")
 
-    tag_transition_probabilities, emission_probabilities = train_tagger(training_set)
+    # Store all words and all tags from the training dataset in a single ordered list.
+    words = [w for (w, _) in training_set]
+    tags = [t for (_, t) in training_set]
 
-    test_tagger()
+    tag_transition_probabilities, emission_probabilities = train_tagger(words, tags)
+
+    test_tagger(testing_set, words, tags, tag_transition_probabilities, emission_probabilities)
 
 
 def split_train_test_data(sentences: ConcatenatedCorpusView, train_size: int = 10000, test_size: int = 500) \
@@ -57,11 +61,7 @@ def split_train_test_data(sentences: ConcatenatedCorpusView, train_size: int = 1
     return training_words, test_words
 
 
-def train_tagger(training_set: list) -> Tuple[Dict[Any, Dict[str, Any]], Dict[Any, Dict[str, Any]]]:
-    # Store all words and all tags from the training dataset in a single ordered list.
-    training_words = [w for (w, _) in training_set]
-    training_tags = [t for (_, t) in training_set]
-
+def train_tagger(words: list, tags: list) -> Tuple[Dict[Any, Dict[str, Any]], Dict[Any, Dict[str, Any]]]:
     # Count number of tag transitions.
     transition_occurrences_file_path = "data_objects/transition_occurences.pkl"
     if os.path.isfile(transition_occurrences_file_path):
@@ -69,7 +69,7 @@ def train_tagger(training_set: list) -> Tuple[Dict[Any, Dict[str, Any]], Dict[An
             transition_occurences = pickle.load(f)
         print("File '{}' already exists, loaded from memory.".format(transition_occurrences_file_path))
     else:
-        transition_occurences = count_tag_transition_occurrences(training_tags)
+        transition_occurences = count_tag_transition_occurrences(tags)
         with open(transition_occurrences_file_path, 'wb') as f:
             pickle.dump(transition_occurences, f)
 
@@ -83,7 +83,7 @@ def train_tagger(training_set: list) -> Tuple[Dict[Any, Dict[str, Any]], Dict[An
             emission_occurences = pickle.load(f)
         print("File '{}' already exists, loaded from memory.".format(emission_occurrences_file_path))
     else:
-        emission_occurences = count_emission_occurrences(training_words, training_tags)
+        emission_occurences = count_emission_occurrences(words, tags)
         with open(emission_occurrences_file_path, 'wb') as f:
             pickle.dump(emission_occurences, f)
 
@@ -91,10 +91,6 @@ def train_tagger(training_set: list) -> Tuple[Dict[Any, Dict[str, Any]], Dict[An
     emission_probabilities = get_emission_probabilities(emission_occurences)
 
     return tag_transition_probabilities, emission_probabilities
-
-
-def test_tagger():
-    pass
 
 
 def count_tag_transition_occurrences(tags: list) -> dict:
@@ -214,6 +210,107 @@ def get_emission_probabilities(emissions):
         transitions_dict[row["current_word"]] = probabilities
 
     return transitions_dict
+
+
+def test_tagger(testing_set, words, tags, tag_transition_probabilities, emission_probabilities):
+    # get the list of words from test list
+    sequence = [w for (w, _) in testing_set[:52]]
+    actual_test_tags_52 = testing_set[:52]
+
+    print("num_sentences: {}".format(sum(x == "<s>" for x in sequence)))
+
+    viterbi_matrix = viterbi_algorithm(sequence, words, tags, tag_transition_probabilities, emission_probabilities)
+
+    predicted_tags = backtrace(viterbi_matrix)
+    print("{}%".format(accuracy(predicted_tags, actual_test_tags_52)))
+
+
+def viterbi_algorithm(sequence, words, tags, tag_transition_probabilities, emission_probabilities):
+    # Remove duplicate words and tags as a dict can only have unique keys.
+    unique_tags = set(tags)
+    unique_words = set(words)
+
+    viterbi_matrix = {}
+    for tag in unique_tags:
+        viterbi_matrix[tag] = {}
+        val = {
+            "words": sequence,
+            "viterbi": [0] * len(sequence)
+        }
+        viterbi_matrix[tag] = val
+
+    for i in range(0, len(sequence)):
+
+        if viterbi_matrix[tag]["words"][i] in unique_words:
+            if i == 0:
+                continue
+
+            elif i == 1:
+                for tag in viterbi_matrix.keys():
+                    current_word = viterbi_matrix[tag]["words"][i]
+
+                    viterbi_matrix[tag]["viterbi"][i] = tag_transition_probabilities["<s>"][tag] * \
+                                                        emission_probabilities[current_word][tag]
+                    previous_word = viterbi_matrix[tag]["words"][i]
+
+            else:
+                for tag in viterbi_matrix.keys():
+                    temp = []
+                    for k in viterbi_matrix.keys():
+                        previous_viterbi = viterbi_matrix[k]["viterbi"][i - 1]
+
+                        val = previous_viterbi * tag_transition_probabilities[k][tag]
+                        temp.append(val)
+                    max_val = max(temp)
+
+                    current_word = viterbi_matrix[tag]["words"][i]
+
+                    viterbi_matrix[tag]["viterbi"][i] = max_val * emission_probabilities[current_word][tag]
+
+        ## word not in unique words:
+        ## set viterbis to 1/1000
+        else:
+            for tag in viterbi_matrix.keys():
+                viterbi_matrix[tag]["viterbi"][i] = 0.001 * emission_probabilities[current_word][tag]
+
+    return viterbi_matrix
+
+
+def backtrace(viterbi_matrix: dict) -> list:
+    predicted_tags = []
+
+    length_sent = len(viterbi_matrix["ADV"]["words"])
+
+    for i in range(length_sent - 2, 0, -1):
+
+        predicted_tag = None
+        max_viterbi = 0
+
+        for tag in viterbi_matrix.keys():
+            vit_value = viterbi_matrix[tag]["viterbi"][i]
+            if vit_value > max_viterbi:
+                max_viterbi = vit_value
+                predicted_tag = tag
+
+        predicted_tags.append((viterbi_matrix[predicted_tag]["words"][i], predicted_tag))
+
+    return predicted_tags[::-1]
+
+
+def accuracy(predicted: list, actual: list) -> float:
+    predicted = [(w, t) for (w, t) in predicted if w != "<s>" and w != "</s>"]
+    actual = [(w, t) for (w, t) in actual if w != "<s>" and w != "</s>"]
+
+    predicted_tags = [t for (_, t) in predicted]
+    actual_tags = [t for (_, t) in actual]
+
+    res = 0
+
+    for index, (a, p) in enumerate(zip(actual_tags, predicted_tags)):
+        if a == p:
+            res += 1
+
+    return round(res / len(actual), 4) * 100
 
 
 # def count_tag_transition_occurrences(tagged_sentences: list) -> dict:
