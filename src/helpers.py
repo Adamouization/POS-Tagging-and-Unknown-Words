@@ -1,4 +1,4 @@
-def download_brown_corpus():
+def download_brown_corpus() -> None:
     """
     Download the Brown corpus and store a version locally.
     Note: usually locally stored in ~/nltk_data. Can also be stored in the virtual environment's "lib" or "include"
