@@ -45,8 +45,7 @@ def main() -> None:
     # Test the POS tagger on the testing data using the Viterbi back-tracing algorithm.
     test_sentences = list(tagged_sentences[10000:10500])  # todo use a sentence architecture rather than word.
     test_sentences = add_start_and_end_of_sentence_tags(test_sentences)
-    test_tagger(testing_set, unique_training_words, unique_training_tags, tag_transition_probabilities,
-                emission_probabilities, test_sentences)
+    test_tagger(testing_set, unique_training_tags, tag_transition_probabilities, emission_probabilities, test_sentences)
 
 
 def parse_command_line_arguments() -> None:
@@ -230,9 +229,10 @@ def get_tag_transition_probability(transitions):
     return transitions_dict
 
 
-def get_emission_probabilities(training_set: list, training_tags: list) -> dict:
+def get_emission_probabilities(training_set: list, training_tags: list, bins: int = 100000) -> dict:
     """
 
+    :param bins:
     :param training_tags:
     :param training_set:
     :return:
@@ -242,13 +242,12 @@ def get_emission_probabilities(training_set: list, training_tags: list) -> dict:
     tags = remove_list_duplicates(training_tags)
     for tag in tags:
         words = [w for (w, t) in training_set if t == tag]
-        emission_probabilities[tag] = WittenBellProbDist(FreqDist(words), bins=100000)
+        emission_probabilities[tag] = WittenBellProbDist(FreqDist(words), bins=bins)
 
     return emission_probabilities
 
 
-def test_tagger(testing_set: list, unique_training_words: list, unique_training_tags: list,
-                tag_transition_probabilities: dict,
+def test_tagger(testing_set: list, unique_training_tags: list, tag_transition_probabilities: dict,
                 emission_probabilities: dict, test_sentences: list) -> None:
     predicted_tags_per_sentence = list()
 
@@ -397,19 +396,17 @@ def calculate_accuracy(predicted: list, actual: list) -> float:
     :param actual:
     :return:
     """
-    # Ignore start and end of sentence stags <s> and </s>.
-    predicted = [(w, t) for (w, t) in predicted if w != "<s>" and w != "</s>"]
-    actual = [(w, t) for (w, t) in actual if w != "<s>" and w != "</s>"]
+    # Get the tags for comparison (ignore start and end of sentence stags <s> and </s>).
+    predicted_tags = extract_tags([(word, tag) for (word, tag) in predicted if word != "<s>" and word != "</s>"])
+    actual_tags = extract_tags([(word, tag) for (word, tag) in actual if word != "<s>" and word != "</s>"])
 
-    predicted_tags = extract_tags(predicted)
-    actual_tags = extract_tags(actual)
-
+    # Count number of correct tag predictions.
     correct_tag_counter = 0
-    for index, (a, p) in enumerate(zip(actual_tags, predicted_tags)):
-        if a == p:
+    for index, (actual_tag, predicted_tag) in enumerate(zip(actual_tags, predicted_tags)):
+        if actual_tag == predicted_tag:
             correct_tag_counter += 1
 
-    return (correct_tag_counter / len(actual)) * 100
+    return (correct_tag_counter / len(actual)) * 100  # Return in the form of a %.
 
 
 # def count_tag_transition_occurrences(tagged_sentences: list) -> dict:
