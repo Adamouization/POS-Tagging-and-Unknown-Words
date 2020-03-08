@@ -13,11 +13,6 @@ import src.config as config
 from src.helpers import *
 
 
-# Constants
-START_TAG_TUPLE = ("<s>", "<s>")
-END_TAG_TUPLE = ("</s>", "</s>")
-
-
 def main() -> None:
     """
     Program entry point.
@@ -38,17 +33,20 @@ def main() -> None:
         print_number_of_sentences(training_set, "training dataset")
         print_number_of_sentences(testing_set, "testing dataset")
 
+    # Store all words and all tags from the training dataset in a ordered lists (and make lists without duplicates).
+    training_words = extract_words(training_set)
+    unique_training_words = remove_list_duplicates(training_words)
+    training_tags = extract_tags(training_set)
+    unique_training_tags = remove_list_duplicates(training_tags)
+
     # Train the POS tagger by generating the tag transition and word emission probability matrices of the HMM.
-    tag_transition_probabilities, emission_probabilities = train_tagger(training_set)
+    tag_transition_probabilities, emission_probabilities = train_tagger(training_set, training_tags)
 
     # Test the POS tagger on the testing data using the Viterbi back-tracing algorithm.
-    unique_training_words = list(set([w for (w, _) in training_set]))
-    unique_training_tags = list(set([t for (_, t) in training_set]))
-    test_sentences = list(tagged_sentences[10000:10500])
-    for sentence in test_sentences:
-        sentence.insert(0, START_TAG_TUPLE)
-        sentence.insert(len(sentence), END_TAG_TUPLE)
-    test_tagger(testing_set, unique_training_words, unique_training_tags, tag_transition_probabilities, emission_probabilities, test_sentences)
+    test_sentences = list(tagged_sentences[10000:10500])  # todo use a sentence architecture rather than word.
+    test_sentences = add_start_and_end_of_sentence_tags(test_sentences)
+    test_tagger(testing_set, unique_training_words, unique_training_tags, tag_transition_probabilities,
+                emission_probabilities, test_sentences)
 
 
 def parse_command_line_arguments() -> None:
@@ -80,35 +78,27 @@ def split_train_test_data(sentences: ConcatenatedCorpusView, train_size: int = 1
     """
     # Create lists for the training/testing sets based on the specified size.
     training_set = list(sentences[:train_size])
-    test_set = list(sentences[train_size:train_size + test_size])
+    testing_set = list(sentences[train_size:train_size + test_size])
 
-    # Append <s> and </s> (tagged with their POS) to the training set.
-    for sentence in training_set:
-        sentence.insert(0, START_TAG_TUPLE)
-        sentence.insert(len(sentence), END_TAG_TUPLE)
-
-    # Append <s> and </s> (tagged with their POS) to the testing set.
-    for sentence in test_set:
-        sentence.insert(0, START_TAG_TUPLE)
-        sentence.insert(len(sentence), END_TAG_TUPLE)
+    # Append <s> and </s> (tagged with their POS) to the training and testing set.
+    training_set = add_start_and_end_of_sentence_tags(training_set)
+    testing_set = add_start_and_end_of_sentence_tags(testing_set)
 
     # Convert embedded lists into a single list.
-    training_words = list(chain.from_iterable(training_set))
-    test_words = list(chain.from_iterable(test_set))
+    train = list(chain.from_iterable(training_set))
+    test = list(chain.from_iterable(testing_set))
 
-    return training_words, test_words
+    return train, test
 
 
-def train_tagger(training_set: list) -> Tuple[Dict[Any, Dict[str, Any]], Dict[Any, Dict[str, Any]]]:
+def train_tagger(training_set: list, training_tags: list) \
+        -> Tuple[Dict[Any, Dict[str, Any]], Dict[Any, Dict[str, Any]]]:
     """
 
+    :param training_tags:
     :param training_set:
     :return:
     """
-    # Store all words and all tags from the training dataset in a ordered lists.
-    training_words = [w for (w, _) in training_set]
-    training_tags = [t for (_, t) in training_set]
-
     # Count number of tag transitions and get probabilities of tag transitions.
     # If tag transition probabilities were already calculated, then load them into memory, else calculate them.
     transition_probabilities_file_path = "data_objects/transition_probabilities.pkl"
@@ -130,12 +120,7 @@ def train_tagger(training_set: list) -> Tuple[Dict[Any, Dict[str, Any]], Dict[An
             emission_probabilities = pickle.load(f)
         print("File '{}' already exists, loaded from memory.".format(emission_probabilities_file_path))
     else:
-        # emission_occurrences = count_emission_occurrences(training_words, training_tags)
-        # emission_probabilities = get_emission_probabilities(emission_occurrences)
-        emission_probabilities = dict()
-        for tag in set([t for (_, t) in training_set]):
-            words = [w for (w, t) in training_set if t == tag]
-            emission_probabilities[tag] = WittenBellProbDist(FreqDist(words), bins=1e5)
+        emission_probabilities = get_emission_probabilities(training_set, training_tags)
         with open(emission_probabilities_file_path, 'wb') as f:
             pickle.dump(emission_probabilities, f)
 
@@ -147,7 +132,7 @@ def count_tag_transition_occurrences(tags: list) -> dict:
     word_list = list()
 
     # get the list of unique tags
-    unique_tags = set(tags)
+    unique_tags = remove_list_duplicates(tags)
 
     ## create a dictionary current_tag whose keys are the unique tags
     ## Each value in current_tag is also a dict D, whose keys are the counts of those tags
@@ -245,108 +230,53 @@ def get_tag_transition_probability(transitions):
     return transitions_dict
 
 
-def count_emission_occurrences(words: list, tags: list) -> dict:
-    unique_words = list(set(words))
-    unique_tags = list(set(tags))
-
-    current_words = {}
-
-    for i in unique_words:
-        current_words[i] = {}
-        current_words[i]["tag"] = {}
-
-        for j in unique_tags:
-            current_words[i]["tag"][j] = 0
-
-    for index, (w, p) in enumerate(zip(words, tags)):
-        current_words[w]["tag"][p] += 1
-
-    return current_words
-
-
-def get_emission_probabilities(emissions):
-    results_list = list()
-    for key in emissions.keys():
-        row = {}
-        row = emissions[key]["tag"]
-        row["current_word"] = key
-        results_list.append(row)
-
-    transitions_df = pd.DataFrame.from_dict(results_list)
-    transitions_df["row_total"] = transitions_df.iloc[:, 0:14].sum(axis=1)
-    transitions_df = transitions_df[
-        ['current_word', 'X', 'PRON', 'ADP', 'VERB', 'NOUN', 'DET', '.', 'ADV', 'PRT', 'ADJ',
-         'CONJ', 'NUM', "<s>", "</s>", "row_total"]]
-
-    cols = transitions_df.columns
-    cols = [c for c in cols if c != "current_word" and c != "row_total"]
-
-    new_cols = ["current_word"]
-
-    for c in cols:
-        col_name = c + "_pct"
-        new_cols.append(col_name)
-        transitions_df[col_name] = transitions_df[c] / transitions_df["row_total"]
-
-    transitions_dict = {}
-    for index, row in transitions_df[new_cols].iterrows():
-        probabilities = {}
-        for i in new_cols[1:]:
-            j = i.split("_")[0]
-            probabilities[j] = row[i]
-
-        transitions_dict[row["current_word"]] = probabilities
-
-    return transitions_dict
-
-
-def test_tagger(testing_set: list, unique_training_words: list, unique_training_tags: list, tag_transition_probabilities: dict,
-                emission_probabilities: dict, test_sentences: list) -> None:
+def get_emission_probabilities(training_set: list, training_tags: list) -> dict:
     """
 
-    :param testing_set:
-    :param unique_training_words:
-    :param tag_transition_probabilities:
-    :param emission_probabilities:
+    :param training_tags:
+    :param training_set:
     :return:
     """
-    # Get the list of words and tags from the testing set.
-    testing_words = [w for (w, _) in testing_set]
-    testing_tags = [t for (_, t) in testing_set]
+    emission_probabilities = dict()
 
-    # Remove duplicate tags as dicts can only have unique keys.
-    unique_testing_tags = list(set(testing_tags))
+    tags = remove_list_duplicates(training_tags)
+    for tag in tags:
+        words = [w for (w, t) in training_set if t == tag]
+        emission_probabilities[tag] = WittenBellProbDist(FreqDist(words), bins=100000)
 
-    predicted_tags_per_sentence = []
+    return emission_probabilities
+
+
+def test_tagger(testing_set: list, unique_training_words: list, unique_training_tags: list,
+                tag_transition_probabilities: dict,
+                emission_probabilities: dict, test_sentences: list) -> None:
+    predicted_tags_per_sentence = list()
+
+    # Loop through sentences rather than words to avoid increasingly small probabilities that
+    # eventually reach 0 (smallest float value is e-308 in Python).
     for sentence in test_sentences:
         testing_words = [w for (w, _) in sentence]
         # Calculate the Viterbi matrix.
-        viterbi_matrix = viterbi_algorithm(testing_words, unique_training_tags, tag_transition_probabilities, emission_probabilities)
+        viterbi_matrix = viterbi_algorithm_smoothed(testing_words, unique_training_tags, tag_transition_probabilities,
+                                                    emission_probabilities)
         # Use back-tracing to determine the most likely POS tags for each word in the testing dataset.
-        back_trace = backtrace(viterbi_matrix)
-        predicted_tags_per_sentence.append(back_trace)
-
+        predicted_tags_per_sentence.append(backtrace(viterbi_matrix))
+    # Link all lists in predicted_tags_per_sentence into a large single list.
     predicted_tags = list(chain.from_iterable(predicted_tags_per_sentence))
 
-    # Print the accuracy.
+    # viterbi_matrix = viterbi_algorithm_unsmoothed(unique_training_words, unique_training_tags, testing_words,
+    # tag_transition_probabilities, emission_probabilities)
+
+    # Print the accuracy of the tagger.
     tagging_accuracy = round(calculate_accuracy(predicted_tags, testing_set), 2)
-    print("POS Tagging accuracy on test: {}%".format(tagging_accuracy))
+    print("POS Tagging accuracy on test dataset: {}%".format(tagging_accuracy))
 
 
-def viterbi_algorithm_old(unique_training_words: list, words: list, tag_transition_probabilities: dict,
-                      emission_probabilities: dict) -> dict:
-    """
-
-    :param unique_training_words:
-    :param words:
-    :param unique_testing_tags:
-    :param tag_transition_probabilities:
-    :param emission_probabilities:
-    :return:
-    """
+def viterbi_algorithm_unsmoothed(unique_training_words: list, unique_training_tags: list, words: list,
+                                 tag_transition_probabilities: dict, emission_probabilities: dict) -> dict:
     # Initialise the Viterbi matrix.
     viterbi_matrix = dict()
-    for tag in unique_testing_tags:
+    for tag in unique_training_tags:
         viterbi_matrix[tag] = {
             "words": words,
             "viterbi": [0] * len(words)
@@ -394,17 +324,8 @@ def viterbi_algorithm_old(unique_training_words: list, words: list, tag_transiti
     return viterbi_matrix
 
 
-def viterbi_algorithm(words: list, unique_training_tags: list, tag_transition_probabilities: dict,
-                      emission_probabilities: dict) -> dict:
-    """
-
-    :param unique_training_words:
-    :param words:
-    :param unique_testing_tags:
-    :param tag_transition_probabilities:
-    :param emission_probabilities:
-    :return:
-    """
+def viterbi_algorithm_smoothed(words: list, unique_training_tags: list, tag_transition_probabilities: dict,
+                               emission_probabilities: dict) -> dict:
     # Initialise the Viterbi matrix.
     viterbi_matrix = dict()
     for tag in unique_training_tags:
@@ -416,7 +337,7 @@ def viterbi_algorithm(words: list, unique_training_tags: list, tag_transition_pr
     # Loop through each word in the testing set.
     for i in range(0, len(words), 1):
 
-        # Special case for first word, (bigram HMMs, don't care about tag before first word). todo: verify reason
+        # Special case for first word, (bigram HMMs, don't care about start of sentence tag <s> before the first word.)
         if i == 0:
             continue
 
@@ -451,11 +372,10 @@ def backtrace(viterbi_matrix: dict) -> list:
     :return:
     """
     backwards_predicted_tags = list()
-
-    sentence_length = len(viterbi_matrix["ADV"]["words"])
+    sentence_length = len(viterbi_matrix["."]["words"])
 
     # Start at end of all sentences and back-trace backwards to beginning.
-    for i in range(sentence_length-2, 0, -1):
+    for i in range(sentence_length - 2, 0, -1):
         predicted_tag = None
         max_viterbi = 0
         for tag in viterbi_matrix.keys():
@@ -481,8 +401,8 @@ def calculate_accuracy(predicted: list, actual: list) -> float:
     predicted = [(w, t) for (w, t) in predicted if w != "<s>" and w != "</s>"]
     actual = [(w, t) for (w, t) in actual if w != "<s>" and w != "</s>"]
 
-    predicted_tags = [t for (_, t) in predicted]
-    actual_tags = [t for (_, t) in actual]
+    predicted_tags = extract_tags(predicted)
+    actual_tags = extract_tags(actual)
 
     correct_tag_counter = 0
     for index, (a, p) in enumerate(zip(actual_tags, predicted_tags)):
@@ -553,66 +473,6 @@ def calculate_accuracy(predicted: list, actual: list) -> float:
 #             probabilities[j] = row[i]
 #
 #         transitions_dict[row["current_tag"]] = probabilities
-#
-#     return transitions_dict
-#
-#
-# def count_emission_occurences(tagged_sentences: ConcatenatedCorpusView) -> dict:
-#     word_tag_pairs_occurrences = dict()
-#
-#     # Loop through each sentence in the Brown corpus.
-#     for sentence in tagged_sentences:
-#
-#         # Loop through each tagged word in the sentence.
-#         for tagged_word in sentence:
-#             word = tagged_word[0]
-#             tag = tagged_word[1]
-#
-#             # Create a new nested current tag dict in the dictionary.
-#             if word not in word_tag_pairs_occurrences.keys():
-#                 word_tag_pairs_occurrences[word] = dict()
-#
-#             # Create a new preceding tag value in the nested dict.
-#             if tag not in word_tag_pairs_occurrences[word].keys():
-#                 word_tag_pairs_occurrences[word][tag] = 0
-#
-#             # Increment the occurrence once we are sure that the keys are correctly created in the dict.
-#             word_tag_pairs_occurrences[word][tag] += 1
-#
-#     return word_tag_pairs_occurrences
-#
-#
-# def get_emission_probabilities(emissions):
-#     results_list = list()
-#     for key in emissions.keys():
-#         row = {}
-#         row = emissions[key]["tag"]
-#         row["current_word"] = key
-#         results_list.append(row)
-#
-#     transitions_df = pd.DataFrame.from_dict(results_list)
-#     transitions_df["row_total"] = transitions_df.iloc[:, 0:14].sum(axis=1)
-#     transitions_df = transitions_df[['current_word', 'X', 'PRON', 'ADP', 'VERB', 'NOUN', 'DET', '.', 'ADV', 'PRT',
-#                                      'ADJ', 'CONJ', 'NUM', "<s>", "</s>", "row_total"]]
-#
-#     cols = transitions_df.columns
-#     cols = [c for c in cols if c != "current_word" and c != "row_total"]
-#
-#     new_cols = ["current_word"]
-#
-#     for c in cols:
-#         col_name = c + "_pct"
-#         new_cols.append(col_name)
-#         transitions_df[col_name] = transitions_df[c] / transitions_df["row_total"]
-#
-#     transitions_dict = {}
-#     for index, row in transitions_df[new_cols].iterrows():
-#         probabilities = {}
-#         for i in new_cols[1:]:
-#             j = i.split("_")[0]
-#             probabilities[j] = row[i]
-#
-#         transitions_dict[row["current_word"]] = probabilities
 #
 #     return transitions_dict
 
