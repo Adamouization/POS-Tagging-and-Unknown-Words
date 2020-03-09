@@ -396,11 +396,21 @@ def calculate_accuracy(predicted: list, actual: list) -> float:
     :param actual:
     :return:
     """
-    # Get the tags for comparison (ignore start and end of sentence stags <s> and </s>).
-    predicted_tags = extract_tags([(word, tag) for (word, tag) in predicted if word != "<s>" and word != "</s>"])
-    actual_tags = extract_tags([(word, tag) for (word, tag) in actual if word != "<s>" and word != "</s>"])
+    # Ignore start and end of sentence stags <s> and </s>.
+    predicted_trim = list()
+    for (w, t) in predicted:
+        if w != "<s>" and w != "</s>":
+            predicted_trim.append((w, t))
+    actual = [(w, t) for (w, t) in actual if w != "<s>" and w != "</s>"]
+    # actual_trim = list()
+    # for (w, t) in actual:
+    #     if w != "<s>" and w != "</s>":
+    #         actual_trim.append((w, t))
 
-    # Count number of correct tag predictions.
+    # Extract tags only for comparison.
+    predicted_tags = extract_tags(predicted_trim)
+    actual_tags = extract_tags(actual)
+
     correct_tag_counter = 0
     for index, (actual_tag, predicted_tag) in enumerate(zip(actual_tags, predicted_tags)):
         if actual_tag == predicted_tag:
