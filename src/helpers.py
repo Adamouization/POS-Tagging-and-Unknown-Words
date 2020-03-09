@@ -1,14 +1,12 @@
 from nltk import FreqDist
 from nltk.corpus.util import LazyCorpusLoader
 
-
-START_TAG_TUPLE = ("<s>", "<s>")
-END_TAG_TUPLE = ("</s>", "</s>")
+import src.config as config
 
 
 def download_brown_corpus() -> None:
     """
-    Download the Brown corpus and store a version locally.
+    Download the Brown corpus and the simplified universal tagset. Store a version locally.
     Note: usually locally stored in ~/nltk_data. Can also be stored in the virtual environment's "lib" or "include"
     directories.
     :return: None.
@@ -19,6 +17,12 @@ def download_brown_corpus() -> None:
 
 
 def get_hapax_legomenon(words, unknown_words_threshold: int = 1) -> list:
+    """
+
+    :param words:
+    :param unknown_words_threshold:
+    :return:
+    """
     hapax_legomenon = list()
     freq_dist_words = FreqDist(words)
     for i, val in freq_dist_words.items():
@@ -34,8 +38,8 @@ def add_start_and_end_of_sentence_tags(data: list) -> list:
     :return:
     """
     for sentence in data:
-        sentence.insert(0, START_TAG_TUPLE)
-        sentence.insert(len(sentence), END_TAG_TUPLE)
+        sentence.insert(0, config.START_TAG_TUPLE)
+        sentence.insert(len(sentence), config.END_TAG_TUPLE)
     return data
 
 
@@ -80,5 +84,5 @@ def print_number_of_sentences(dataset: [list], dataset_name: str) -> None:
     :param dataset_name:
     :return:
     """
-    counter = sum(x == "<s>" for (x, _) in dataset)
+    counter = sum(x == config.START_TAG_STRING for (x, _) in dataset)
     print("Number of sentences in {}: {}".format(dataset_name, counter))

@@ -46,7 +46,9 @@ def main() -> None:
     tag_transition_probabilities, emission_probabilities = train_tagger(training_set, training_tags)
 
     # Test the POS tagger on the testing data using the Viterbi back-tracing algorithm.
-    test_sentences = list(tagged_sentences[10000:10500])  # todo use a sentence architecture rather than word.
+    test_sentences = list(
+        tagged_sentences[config.DEFAULT_TRAIN_SIZE:config.DEFAULT_TRAIN_SIZE + config.DEFAULT_TEST_SIZE]
+    )  # todo use a sentence architecture rather than word.
     test_sentences = add_start_and_end_of_sentence_tags(test_sentences)
     test_tagger(testing_set, unique_training_tags, tag_transition_probabilities, emission_probabilities, test_sentences)
 
@@ -69,8 +71,8 @@ def parse_command_line_arguments() -> None:
     config.debug = args.debug
 
 
-def split_train_test_data(sentences: ConcatenatedCorpusView, train_size: int = 10000, test_size: int = 500) \
-        -> Tuple[list, list]:
+def split_train_test_data(sentences: ConcatenatedCorpusView, train_size: int = config.DEFAULT_TRAIN_SIZE,
+                          test_size: int = config.DEFAULT_TEST_SIZE) -> Tuple[list, list]:
     """
 
     :param sentences:
@@ -343,7 +345,7 @@ def viterbi_algorithm_unsmoothed(unique_training_words: list, unique_training_ta
                 for tag in viterbi_matrix.keys():
                     current_word = viterbi_matrix[tag]["words"][i]
 
-                    viterbi_matrix[tag]["viterbi"][i] = tag_transition_probabilities["<s>"][tag] * \
+                    viterbi_matrix[tag]["viterbi"][i] = tag_transition_probabilities[config.START_TAG_STRING][tag] * \
                                                         emission_probabilities[current_word][tag]
                     previous_word = viterbi_matrix[tag]["words"][i]
 
@@ -391,7 +393,7 @@ def viterbi_algorithm_smoothed(words: list, unique_training_tags: list, tag_tran
         elif i == 1:
             for tag in viterbi_matrix.keys():
                 current_word = viterbi_matrix[tag]["words"][i]
-                viterbi_matrix[tag]["viterbi"][i] = tag_transition_probabilities["<s>"][tag] * \
+                viterbi_matrix[tag]["viterbi"][i] = tag_transition_probabilities[config.START_TAG_STRING][tag] * \
                                                     emission_probabilities[tag].prob(current_word)
 
         # All other cases.
@@ -446,12 +448,12 @@ def calculate_accuracy(predicted: list, actual: list) -> float:
     # Ignore start and end of sentence stags <s> and </s>.
     predicted_trim = list()
     for (w, t) in predicted:
-        if w != "<s>" and w != "</s>":
+        if w != config.START_TAG_STRING and w != config.END_TAG_STRING:
             predicted_trim.append((w, t))
-    actual = [(w, t) for (w, t) in actual if w != "<s>" and w != "</s>"]
+    actual = [(w, t) for (w, t) in actual if w != config.START_TAG_STRING and w != config.END_TAG_STRING]
     # actual_trim = list()
     # for (w, t) in actual:
-    #     if w != "<s>" and w != "</s>":
+    #     if w != config.START_TAG_STRING and w != config.END_TAG_STRING:
     #         actual_trim.append((w, t))
 
     # Extract tags only for comparison.
