@@ -33,9 +33,12 @@ def main() -> None:
         print_number_of_sentences(training_set, "training dataset")
         print_number_of_sentences(testing_set, "testing dataset")
 
+    # Replace infrequent words with special 'UNK' tags.
+    unique_training_words = remove_list_duplicates(extract_words(training_set))
+    training_set = handle_unknown_words(training_set, unique_training_words, is_training_set=True)
+    testing_set = handle_unknown_words(testing_set, unique_training_words, is_training_set=False)
+
     # Store all words and all tags from the training dataset in a ordered lists (and make lists without duplicates).
-    training_words = extract_words(training_set)
-    unique_training_words = remove_list_duplicates(training_words)
     training_tags = extract_tags(training_set)
     unique_training_tags = remove_list_duplicates(training_tags)
 
@@ -88,6 +91,50 @@ def split_train_test_data(sentences: ConcatenatedCorpusView, train_size: int = 1
     test = list(chain.from_iterable(testing_set))
 
     return train, test
+
+
+def handle_unknown_words(dataset, unique_training_words, is_training_set=True):
+    # Store all words and all tags from the dataset in an ordered list.
+    words = extract_words(dataset)
+    tags = extract_tags(dataset)
+
+    # Get the hapax legomenon of the dataset and replace the words in the the original set with the new 'UNK' words.
+    hapax_legomenon = get_hapax_legomenon(words)
+    if is_training_set:
+        new_dataset_words = replace_training_words(words, hapax_legomenon)
+    else:
+        new_dataset_words = replace_testing_words(words, hapax_legomenon, unique_training_words)
+
+    # Rebuild the original data set with the new word and its associated POS tag.
+    for i in range(0, len(words)):
+        dataset[i] = (new_dataset_words[i], tags[i])
+
+    return dataset
+
+
+def replace_training_words(words: list, hapax_legomenon) -> list:
+    for i, word in enumerate(words):
+        if word in hapax_legomenon:
+            if word.startswith('$'):
+                words[i] = "UNK-currency"
+            elif word.endswith('ed'):
+                words[i] = "UNK-ed"
+            else:
+                words[i] = "UNK"
+    return words
+
+
+def replace_testing_words(words, hapax_legomenon, training_words):
+    unique_training_words = remove_list_duplicates(training_words)
+    for i, word in enumerate(words):
+        if (word in hapax_legomenon) and (word not in unique_training_words):
+            if word.startswith('$'):
+                words[i] = "UNK-currency"
+            elif word.endswith('ed'):
+                words[i] = "UNK-ed"
+            else:
+                words[i] = "UNK"
+    return words
 
 
 def train_tagger(training_set: list, training_tags: list) \

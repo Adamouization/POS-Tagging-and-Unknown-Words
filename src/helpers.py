@@ -1,3 +1,4 @@
+from nltk import FreqDist
 from nltk.corpus.util import LazyCorpusLoader
 
 
@@ -15,6 +16,15 @@ def download_brown_corpus() -> None:
     import nltk
     nltk.download('brown')
     nltk.download('universal_tagset')
+
+
+def get_hapax_legomenon(words, unknown_words_threshold: int = 1) -> list:
+    hapax_legomenon = list()
+    freq_dist_words = FreqDist(words)
+    for i, val in freq_dist_words.items():
+        if val <= unknown_words_threshold:
+            hapax_legomenon.append(i)
+    return hapax_legomenon
 
 
 def add_start_and_end_of_sentence_tags(data: list) -> list:
