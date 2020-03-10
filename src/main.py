@@ -40,18 +40,18 @@ def main() -> None:
     # Replace infrequent words with special 'UNK' tags.
     training_words = extract_words(training_set)
     unique_training_words = remove_list_duplicates(training_words)
-    unk_training_set = handle_unknown_words(training_set, unique_training_words, is_training_set=True)
-    unk_testing_set = handle_unknown_words(testing_set, unique_training_words, is_training_set=False)
+    training_set = handle_unknown_words(training_set, unique_training_words, is_training_set=True)
+    testing_set = handle_unknown_words(testing_set, unique_training_words, is_training_set=False)
 
     # Store all words and all tags from the training dataset in a ordered lists (and make lists without duplicates).
-    training_tags = extract_tags(unk_training_set)
+    training_tags = extract_tags(training_set)
     unique_training_tags = remove_list_duplicates(training_tags)
 
     # Train the POS tagger by generating the tag transition and word emission probability matrices of the HMM.
-    tag_transition_probabilities, emission_probabilities = train_tagger(unk_training_set, training_tags)
+    tag_transition_probabilities, emission_probabilities = train_tagger(training_set, training_tags)
 
     # Test the POS tagger on the testing data using the Viterbi back-tracing algorithm.
-    test_tagger(unk_testing_set, unique_training_tags, tag_transition_probabilities, emission_probabilities)
+    test_tagger(testing_set, unique_training_tags, tag_transition_probabilities, emission_probabilities)
 
 
 def parse_command_line_arguments() -> None:
