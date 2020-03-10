@@ -40,18 +40,18 @@ def main() -> None:
     # Replace infrequent words with special 'UNK' tags.
     training_words = extract_words(training_set)
     unique_training_words = remove_list_duplicates(training_words)
-    training_set = handle_unknown_words(training_set, unique_training_words, is_training_set=True)
-    testing_set = handle_unknown_words(testing_set, unique_training_words, is_training_set=False)
+    unk_training_set = handle_unknown_words(training_set, unique_training_words, is_training_set=True)
+    unk_testing_set = handle_unknown_words(testing_set, unique_training_words, is_training_set=False)
 
     # Store all words and all tags from the training dataset in a ordered lists (and make lists without duplicates).
-    training_tags = extract_tags(training_set)
+    training_tags = extract_tags(unk_training_set)
     unique_training_tags = remove_list_duplicates(training_tags)
 
     # Train the POS tagger by generating the tag transition and word emission probability matrices of the HMM.
-    tag_transition_probabilities, emission_probabilities = train_tagger(training_set, training_tags)
+    tag_transition_probabilities, emission_probabilities = train_tagger(unk_training_set, training_tags)
 
     # Test the POS tagger on the testing data using the Viterbi back-tracing algorithm.
-    test_tagger(testing_set, unique_training_tags, tag_transition_probabilities, emission_probabilities)
+    test_tagger(unk_testing_set, unique_training_tags, tag_transition_probabilities, emission_probabilities)
 
 
 def parse_command_line_arguments() -> None:
@@ -344,7 +344,6 @@ def test_tagger(testing_set: list, unique_training_tags: list, tag_transition_pr
         )
         # Use back-tracing to determine the most likely POS tags for each word in the testing dataset.
         predicted_tags.append(backtrace(viterbi_matrix))
-    # Link all lists in predicted_tags_per_sentence into a large single list.
 
     # viterbi_matrix = viterbi_algorithm_unsmoothed(unique_training_words, unique_training_tags, testing_words,
     # tag_transition_probabilities, emission_probabilities)
@@ -354,58 +353,6 @@ def test_tagger(testing_set: list, unique_training_tags: list, tag_transition_pr
     print("POS Tagging accuracy on test dataset: {}%".format(tagging_accuracy))
 
 
-def viterbi_algorithm_unsmoothed(unique_training_words: list, unique_training_tags: list, words: list,
-                                 tag_transition_probabilities: dict, emission_probabilities: dict) -> dict:
-    # Initialise the Viterbi matrix.
-    viterbi_matrix = dict()
-    for tag in unique_training_tags:
-        viterbi_matrix[tag] = {
-            "words": words,
-            "viterbi": [0] * len(words)
-        }
-
-    # Loop through each word in the testing set.
-    for i in range(0, len(words), 1):
-
-        # Check if the word was ever seen in the training set or if it is unknown.
-        if viterbi_matrix[tag]["words"][i] in unique_training_words:
-
-            # Special case for first word, (bigram HMMs, don't care about tag before first word). todo: verify reason
-            if i == 0:
-                continue
-
-            # Special case: # todo verify.
-            elif i == 1:
-                for tag in viterbi_matrix.keys():
-                    current_word = viterbi_matrix[tag]["words"][i]
-
-                    viterbi_matrix[tag]["viterbi"][i] = tag_transition_probabilities[config.START_TAG_STRING][tag] * \
-                                                        emission_probabilities[current_word][tag]
-                    previous_word = viterbi_matrix[tag]["words"][i]
-
-            # All other cases.
-            else:
-                for tag in viterbi_matrix.keys():
-                    temp = list()
-                    for k in viterbi_matrix.keys():
-                        previous_viterbi = viterbi_matrix[k]["viterbi"][i - 1]
-                        val = previous_viterbi * tag_transition_probabilities[k][tag]
-                        temp.append(val)
-                    max_val = max(temp)
-
-                    current_word = viterbi_matrix[tag]["words"][i]
-
-                    viterbi_matrix[tag]["viterbi"][i] = max_val * emission_probabilities[current_word][tag]
-
-        # Unknown word: never seen in the training set.
-        else:
-            for tag in viterbi_matrix.keys():
-                # Naive handling of unknown words: set the max_val to 1/1000
-                viterbi_matrix[tag]["viterbi"][i] = 0.001 * emission_probabilities[current_word][tag]
-
-    return viterbi_matrix
-
-
 def viterbi_algorithm_smoothed(words: list, unique_training_tags: list, tag_transition_probabilities: dict,
                                emission_probabilities: dict) -> dict:
     # Initialise the Viterbi matrix.
@@ -413,7 +360,7 @@ def viterbi_algorithm_smoothed(words: list, unique_training_tags: list, tag_tran
     for tag in unique_training_tags:
         viterbi_matrix[tag] = {
             "words": words,
-            "viterbi": [0] * len(words)
+            "viterbi_value": [0] * len(words)
         }
 
     # Loop through each word in the testing set.
@@ -423,26 +370,24 @@ def viterbi_algorithm_smoothed(words: list, unique_training_tags: list, tag_tran
         if i == 0:
             continue
 
-        # Special case: # todo verify.
+        # Special case: previous tag is <s>.
         elif i == 1:
             for tag in viterbi_matrix.keys():
                 current_word = viterbi_matrix[tag]["words"][i]
-                viterbi_matrix[tag]["viterbi"][i] = tag_transition_probabilities[config.START_TAG_STRING][tag] * \
-                                                    emission_probabilities[tag].prob(current_word)
+                viterbi_matrix[tag]["viterbi_value"][i] = tag_transition_probabilities[config.START_TAG_STRING][tag] * \
+                                                          emission_probabilities[tag].prob(current_word)
 
         # All other cases.
         else:
             for tag in viterbi_matrix.keys():
-                temp = list()
-                for k in viterbi_matrix.keys():
-                    previous_viterbi = viterbi_matrix[k]["viterbi"][i - 1]
-                    val = previous_viterbi * tag_transition_probabilities[k][tag]
-                    temp.append(val)
-                max_val = max(temp)
-
-                current_word = viterbi_matrix[tag]["words"][i]
-
-                viterbi_matrix[tag]["viterbi"][i] = max_val * emission_probabilities[tag].prob(current_word)
+                cur_tag_viterbi_values = list()
+                for key in viterbi_matrix.keys():
+                    previous_viterbi_value = viterbi_matrix[key]["viterbi_value"][i - 1]
+                    cur_viterbi_value = previous_viterbi_value * tag_transition_probabilities[key][tag]
+                    cur_tag_viterbi_values.append(cur_viterbi_value)
+                max_viterbi = max(cur_tag_viterbi_values)
+                viterbi_matrix[tag]["viterbi_value"][i] = \
+                    max_viterbi * emission_probabilities[tag].prob(viterbi_matrix[tag]["words"][i])
 
     return viterbi_matrix
 
@@ -461,7 +406,7 @@ def backtrace(viterbi_matrix: dict) -> list:
         predicted_tag = None
         max_viterbi = 0
         for tag in viterbi_matrix.keys():
-            viterbi_value = viterbi_matrix[tag]["viterbi"][i]
+            viterbi_value = viterbi_matrix[tag]["viterbi_value"][i]
             if viterbi_value > max_viterbi:
                 max_viterbi = viterbi_value
                 predicted_tag = tag
@@ -564,6 +509,57 @@ def calculate_accuracy(predicted: list, actual: list) -> float:
 #         transitions_dict[row["current_tag"]] = probabilities
 #
 #     return transitions_dict
+
+# def viterbi_algorithm_unsmoothed(unique_training_words: list, unique_training_tags: list, words: list,
+#                                  tag_transition_probabilities: dict, emission_probabilities: dict) -> dict:
+#     # Initialise the Viterbi matrix.
+#     viterbi_matrix = dict()
+#     for tag in unique_training_tags:
+#         viterbi_matrix[tag] = {
+#             "words": words,
+#             "viterbi": [0] * len(words)
+#         }
+#
+#     # Loop through each word in the testing set.
+#     for i in range(0, len(words), 1):
+#
+#         # Check if the word was ever seen in the training set or if it is unknown.
+#         if viterbi_matrix[tag]["words"][i] in unique_training_words:
+#
+#             # Special case for first word, (bigram HMMs, don't care about tag before first word). todo: verify reason
+#             if i == 0:
+#                 continue
+#
+#             # Special case: # todo verify.
+#             elif i == 1:
+#                 for tag in viterbi_matrix.keys():
+#                     current_word = viterbi_matrix[tag]["words"][i]
+#
+#                     viterbi_matrix[tag]["viterbi"][i] = tag_transition_probabilities[config.START_TAG_STRING][tag] * \
+#                                                         emission_probabilities[current_word][tag]
+#                     previous_word = viterbi_matrix[tag]["words"][i]
+#
+#             # All other cases.
+#             else:
+#                 for tag in viterbi_matrix.keys():
+#                     temp = list()
+#                     for k in viterbi_matrix.keys():
+#                         previous_viterbi = viterbi_matrix[k]["viterbi"][i - 1]
+#                         val = previous_viterbi * tag_transition_probabilities[k][tag]
+#                         temp.append(val)
+#                     max_val = max(temp)
+#
+#                     current_word = viterbi_matrix[tag]["words"][i]
+#
+#                     viterbi_matrix[tag]["viterbi"][i] = max_val * emission_probabilities[current_word][tag]
+#
+#         # Unknown word: never seen in the training set.
+#         else:
+#             for tag in viterbi_matrix.keys():
+#                 # Naive handling of unknown words: set the max_val to 1/1000
+#                 viterbi_matrix[tag]["viterbi"][i] = 0.001 * emission_probabilities[current_word][tag]
+#
+#     return viterbi_matrix
 
 
 if __name__ == "__main__":
