@@ -183,6 +183,7 @@ def train_tagger(training_set: list, training_tags: list) \
             tag_transition_probabilities = pickle.load(f)
         print("File '{}' already exists, loaded from memory.".format(transition_probabilities_file_path))
     else:
+        # tag_transition_probabilities = get_tag_transition_probabilities(training_set, training_tags)
         transition_occurrences = count_tag_transition_occurrences(training_tags)
         tag_transition_probabilities = get_tag_transition_probability(transition_occurrences)
         with open(transition_probabilities_file_path, 'wb') as f:
@@ -233,33 +234,67 @@ def count_tag_transition_occurrences(tags: list) -> dict:
     return current_tags
 
 
-# def count_tag_transition_occurrences_new(tags: list) -> dict:
-#     tag_transition_occurrences = dict()
-#
-#     # Loop through each tag in the sentence.
-#     current_tag, previous_tag = (str(),) * 2
-#     for i, tag in enumerate(tags):
-#         if i == 0:  # Special case: first tagged token does not have any preceding token.
-#             current_tag = tag
-#         else:
-#             previous_tag = current_tag
-#             current_tag = tag
-#
-#             # Create a new nested current tag dict in the dictionary.
-#             if current_tag not in tag_transition_occurrences.keys():
-#                 tag_transition_occurrences[current_tag] = dict()
-#
-#             # Create a new preceding tag value in the nested dict.
-#             if previous_tag not in tag_transition_occurrences[current_tag].keys():
-#                 tag_transition_occurrences[current_tag][previous_tag] = 0
-#
-#             # Increment the occurrence once we are sure that the keys are correctly created in the dict.
-#             tag_transition_occurrences[current_tag][previous_tag] += 1
-#
-#     return tag_transition_occurrences
+def count_tag_transition_occurrences_new(tags: list) -> dict:
+    tag_transition_occurrences = dict()
+
+    # Loop through each tag in the sentence.
+    current_tag, previous_tag = (str(),) * 2
+    for i, tag in enumerate(tags):
+        if i == 0:  # Special case: first tagged token does not have any preceding token.
+            current_tag = tag
+        else:
+            previous_tag = current_tag
+            current_tag = tag
+
+            # Create a new nested current tag dict in the dictionary.
+            if current_tag not in tag_transition_occurrences.keys():
+                tag_transition_occurrences[current_tag] = dict()
+
+            # Create a new preceding tag value in the nested dict.
+            if previous_tag not in tag_transition_occurrences[current_tag].keys():
+                tag_transition_occurrences[current_tag][previous_tag] = 0
+
+            # Increment the occurrence once we are sure that the keys are correctly created in the dict.
+            tag_transition_occurrences[current_tag][previous_tag] += 1
+
+    return tag_transition_occurrences
+
+
+def get_tag_transition_probabilities(training_set: list, training_tags: list, bins: int = 100) -> dict:
+    transition_probabilities = dict()
+    tags = remove_list_duplicates(training_tags)
+
+    tag_pairs = count_tag_transition_occurrences_new(training_tags)
+
+    for tag in tags:
+        transition_probabilities[tag] = WittenBellProbDist(FreqDist(tag_pairs[tag]), bins=bins)
+
+    for tag in tags:
+        prev_tags = list()
+        for sentence in training_set:
+            for i in range(1, len(sentence)):
+                prev_tags.append(sentence[i-1][1])
+        transition_probabilities[tag] = FreqDist(prev_tags)
+        pass
+        # transition_probabilities[tag] = WittenBellProbDist(FreqDist(prev_tags), bins=bins)
+
+    return transition_probabilities
 
 
 def get_tag_transition_probability(transitions):
+    # count_sums = dict()
+    # for cur_tag, prev_tags in transitions.items():
+    #     count_sums[cur_tag] = 0
+    #     for prev_tag in prev_tags:
+    #         count_sums[cur_tag] += int(prev_tags[prev_tag])
+    #
+    # probabilities = dict()
+    # for cur_tag, prev_tags in transitions.items():
+    #     # if cur_tag not in probabilities.keys():
+    #     for prev_tag in prev_tags:
+    #         val = int(prev_tags[prev_tag]) / count_sums[cur_tag]
+    #         probabilities[cur_tag][prev_tag] = val
+
     results_list = list()
     tags = transitions.keys()
     for key in transitions.keys():
@@ -267,17 +302,6 @@ def get_tag_transition_probability(transitions):
         row = transitions[key]["next_tag"]
         row["current_tag"] = key
         results_list.append(row)
-
-    # count_sums = dict()
-    # for k, val in transitions.items():
-    #     count_sums[k] = 0
-    #     for c in val:
-    #         count_sums[k] += int(val[c])
-    #
-    # probabilities = dict()
-    # for k, val in transitions.items():
-    #     for c in val:
-    #         probabilities[k][c] = int(val[c]) / count_sums[k]
 
     transitions_df = pd.DataFrame.from_dict(results_list)
     transitions_df["row_total"] = transitions_df.iloc[:, 0:14].sum(axis=1)
@@ -306,7 +330,7 @@ def get_tag_transition_probability(transitions):
     return transitions_dict
 
 
-def get_emission_probabilities(training_set: list, training_tags: list, bins: int = 100000) -> dict:
+def get_emission_probabilities(training_set: list, training_tags: list, bins: int = 100000000) -> dict:
     """
 
     :param bins:
@@ -364,7 +388,7 @@ def viterbi_algorithm_smoothed(words: list, unique_training_tags: list, tag_tran
         }
 
     # Loop through each word in the testing set.
-    for i in range(0, len(words), 1):
+    for i in range(0, len(words)):
 
         # Special case for first word, (bigram HMMs, don't care about start of sentence tag <s> before the first word.)
         if i == 0:
@@ -376,6 +400,8 @@ def viterbi_algorithm_smoothed(words: list, unique_training_tags: list, tag_tran
                 current_word = viterbi_matrix[tag]["words"][i]
                 viterbi_matrix[tag]["viterbi_value"][i] = tag_transition_probabilities[config.START_TAG_STRING][tag] * \
                                                           emission_probabilities[tag].prob(current_word)
+                # viterbi_matrix[tag]["viterbi_value"][i] = tag_transition_probabilities[config.START_TAG_STRING].prob(tag) * \
+                #                                           emission_probabilities[tag].prob(current_word)
 
         # All other cases.
         else:
@@ -384,6 +410,7 @@ def viterbi_algorithm_smoothed(words: list, unique_training_tags: list, tag_tran
                 for key in viterbi_matrix.keys():
                     previous_viterbi_value = viterbi_matrix[key]["viterbi_value"][i - 1]
                     cur_viterbi_value = previous_viterbi_value * tag_transition_probabilities[key][tag]
+                    # cur_viterbi_value = previous_viterbi_value * tag_transition_probabilities[key].prob(tag)
                     cur_tag_viterbi_values.append(cur_viterbi_value)
                 max_viterbi = max(cur_tag_viterbi_values)
                 viterbi_matrix[tag]["viterbi_value"][i] = \
