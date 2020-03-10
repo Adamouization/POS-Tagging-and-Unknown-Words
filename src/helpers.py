@@ -83,11 +83,11 @@ def remove_list_duplicates(data: list) -> list:
 
 def get_regex_decimal_number() -> re.Pattern:
     """
-    Regex used to match any decimal number in the string.
-    Source: https://stackoverflow.com/a/44507054/5609328.
-    :return: a regex to extract decimal numbers from a string.
+    Regex used to match any decimal number in the string (not using ^ to avoid force matching the entire string).
+    Matches decimal numbers with either a ',' or a '.'.
+    :return: a regex pattern to extract decimal numbers from a string.
     """
-    return re.compile(r'\d+(?:,\d*)?')
+    return re.compile(r'\d+(?:[,.]\d*)?')
 
 
 def print_corpus_information(corpus: LazyCorpusLoader) -> None:

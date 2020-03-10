@@ -14,7 +14,12 @@ from src.helpers import *
 
 def main() -> None:
     """
-    Program entry point.
+    Program entry point. Main execution flow of the POS tagger:
+        - load corpus data
+        - split data into train/testing sets
+        - handle unknown words in both sets
+        - train tagger (calculate HMM's word emission and tag transision probabilities)
+        - test tagger (Viberbi algorithm, backtracing and accuracy measure)
     :return: None.
     """
     parse_command_line_arguments()
@@ -70,11 +75,11 @@ def parse_command_line_arguments() -> None:
 def split_train_test_data(sentences: ConcatenatedCorpusView, train_size: int = config.DEFAULT_TRAIN_SIZE,
                           test_size: int = config.DEFAULT_TEST_SIZE) -> Tuple[list, list]:
     """
-
-    :param sentences:
-    :param train_size:
-    :param test_size:
-    :return:
+    Splits the dataset into a training and a testing dataset.
+    :param sentences: the corpus' list of sentences.
+    :param train_size: the size of the training set.
+    :param test_size: the size of the testing set.
+    :return: a tuple containing both split data sets.
     """
     # Create lists for the training/testing sets based on the specified size.
     training_set = list(sentences[:train_size])
@@ -87,51 +92,78 @@ def split_train_test_data(sentences: ConcatenatedCorpusView, train_size: int = c
     return training_set, testing_set
 
 
-def handle_unknown_words(dataset, unique_training_words, is_training_set=True):
+def handle_unknown_words(dataset: list, unique_training_words: list, is_training_set: bool = True):
+    """
+    Checks for infrequent words and replaces them with appropriate "UNK-x" strings. In the testing set, checks that the
+    infrequent word in question is not in the training set.
+    :param dataset: the list of sentences.
+    :param unique_training_words: the list words without duplicates.
+    :param is_training_set: a boolean to differentiate whether the set is the training or the testing set.
+    :return: the updated dataset.
+    """
     # Store all words from the dataset in an ordered list.
     words = extract_words(dataset)
 
-    # Get the hapax legomenon of the dataset and replace the words in the the original set with the new 'UNK' words.
-    hapax_legomenon = get_hapax_legomenon(words)
+    # Get the hapax legomenon of the dataset and replace the words in the training set with the new 'UNK' words.
     if is_training_set:
-        dataset = replace_training_words(dataset, hapax_legomenon)
+        dataset = replace_training_words(dataset, get_hapax_legomenon(words))
+    # Replace the words in the the testing set with the new 'UNK' words.
     else:
-        dataset = replace_testing_words(dataset, hapax_legomenon, unique_training_words)
+        dataset = replace_testing_words(dataset, unique_training_words)
 
     return dataset
 
 
-def replace_training_words(dataset: list, hapax_legomenon) -> list:
+def replace_training_words(dataset: list, hapax_legomenon: list) -> list:
+    """
+
+    :param dataset:
+    :param hapax_legomenon:
+    :return:
+    """
     for i, sentence in enumerate(dataset):
         for j in range(0, len(sentence)):
-            word = sentence[j][0]
-            if word in hapax_legomenon:
-                dataset[i][j] = (unknown_words_rules(word), dataset[i][j][1])  # Cannot overwrite tuple values.
+            if sentence[j][0] in hapax_legomenon:
+                dataset[i][j] = (unknown_words_rules(sentence[j][0]), dataset[i][j][1])
     return dataset
 
 
-def replace_testing_words(dataset, hapax_legomenon, unique_training_words):
+def replace_testing_words(dataset: list, unique_training_words: list) -> list:
+    """
+
+    :param dataset:
+    :param unique_training_words:
+    :return:
+    """
     for i, sentence in enumerate(dataset):
         for j in range(0, len(sentence)):
-            word = sentence[j][0]
-            if (word in hapax_legomenon) and (word not in unique_training_words):
-                dataset[i][j] = (unknown_words_rules(word), dataset[i][j][1])  # Cannot overwrite tuple values.
+            if sentence[j][0] not in unique_training_words:
+                dataset[i][j] = (unknown_words_rules(sentence[j][0]), dataset[i][j][1])
     return dataset
 
 
-def unknown_words_rules(word):
+def unknown_words_rules(word: str) -> str:
+    """
+
+    :param word:
+    :return:
+    """
     if word.startswith('$'):
         return "UNK-currency"
     elif word.endswith('ed'):
         return "UNK-ed"
     elif word.endswith('ing'):
         return"UNK-ing"
+    elif word.endswith("'s"):
+        return"UNK-apostrophe-s"
     elif word.istitle():
         return "UNK-uppercase"
     elif word.isdigit():
         return "UNK-number"
     elif get_regex_decimal_number().match(word):
         return "UNK-decimal-number"
+    elif '-' in word:
+        return "UNK-hyphen"
     return "UNK"
 
 
