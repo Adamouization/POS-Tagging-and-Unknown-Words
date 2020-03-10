@@ -10,6 +10,7 @@ START_TAG_STRING = "<s>"
 END_TAG_STRING = "</s>"
 DEFAULT_TRAIN_SIZE = 10000
 DEFAULT_TEST_SIZE = 500
+MAX_SENTENCE_LENGTH = 100
 
 
 # Global variables (set by command-line arguments).

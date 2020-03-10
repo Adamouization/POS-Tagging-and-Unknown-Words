@@ -36,13 +36,16 @@ def get_hapax_legomenon(words, unknown_words_threshold: int = 1) -> list:
 
 def add_start_and_end_of_sentence_tags(data: list) -> list:
     """
-    Append <s> and </s> (tagged with their POS) to the training set.
-    :param data:
-    :return:
+    Append <s> and </s> (tagged with their POS) to the training set. Removes long sentences (>100 words) from the data.
+    :param data: the list of sentences.
+    :return: the new list of sentences of length < 100 words with <s> and </s> tags.
     """
     for sentence in data:
-        sentence.insert(0, config.START_TAG_TUPLE)
-        sentence.insert(len(sentence), config.END_TAG_TUPLE)
+        if len(sentence) <= config.MAX_SENTENCE_LENGTH:  # Used to avoid underflow caused by long sentences.
+            sentence.insert(0, config.START_TAG_TUPLE)
+            sentence.insert(len(sentence), config.END_TAG_TUPLE)
+        else:
+            data.remove(sentence)
     return data
 
 
