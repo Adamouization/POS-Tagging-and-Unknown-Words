@@ -1,3 +1,5 @@
+import re
+
 from nltk import FreqDist
 from nltk.corpus.util import LazyCorpusLoader
 
@@ -65,6 +67,10 @@ def remove_list_duplicates(data: list) -> list:
     """"""
 
     return list(set(data))
+
+
+def get_regex_decimal_number():
+    return re.compile(r'\d+(?:,\d*)?')
 
 
 def print_corpus_information(corpus: LazyCorpusLoader) -> None:

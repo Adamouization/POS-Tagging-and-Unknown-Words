@@ -38,6 +38,13 @@ def main() -> None:
     training_set = handle_unknown_words(training_set, unique_training_words, is_training_set=True)
     testing_set = handle_unknown_words(testing_set, unique_training_words, is_training_set=False)
 
+    # Test the POS tagger on the testing data using the Viterbi back-tracing algorithm.
+    # test_sentences = list(
+    #     tagged_sentences[config.DEFAULT_TRAIN_SIZE:config.DEFAULT_TRAIN_SIZE + config.DEFAULT_TEST_SIZE]
+    # )  # todo use a sentence architecture rather than word.
+    # test_sentences = add_start_and_end_of_sentence_tags(test_sentences)
+    # test_sentences = handle_unknown_words(test_sentences, unique_training_words, is_training_set=False)
+
     # Store all words and all tags from the training dataset in a ordered lists (and make lists without duplicates).
     training_tags = extract_tags(training_set)
     unique_training_tags = remove_list_duplicates(training_tags)
@@ -118,10 +125,25 @@ def replace_training_words(words: list, hapax_legomenon) -> list:
     for i, word in enumerate(words):
         if word in hapax_legomenon:
             if word.startswith('$'):
+                print(word + ", UNK-currency")
                 words[i] = "UNK-currency"
             elif word.endswith('ed'):
+                print(word + ", UNK-ed")
                 words[i] = "UNK-ed"
+            elif word.endswith('ing'):
+                print(word + ", UNK-ing")
+                words[i] = "UNK-ing"
+            elif word.istitle():
+                print(word + ", UNK-uppercase")
+                words[i] = "UNK-uppercase"
+            elif word.isdigit():
+                print(word + ", UNK-number")
+                words[i] = "UNK-number"
+            elif get_regex_decimal_number().match(word):
+                print(word + ", UNK-decimal-number")
+                words[i] = "UNK-decimal-number"
             else:
+                print(word + ", UNK")
                 words[i] = "UNK"
     return words
 
@@ -131,10 +153,25 @@ def replace_testing_words(words, hapax_legomenon, training_words):
     for i, word in enumerate(words):
         if (word in hapax_legomenon) and (word not in unique_training_words):
             if word.startswith('$'):
+                print(word + "UNK-currency")
                 words[i] = "UNK-currency"
             elif word.endswith('ed'):
+                print(word)
                 words[i] = "UNK-ed"
+            elif word.endswith('ing'):
+                print(word)
+                words[i] = "UNK-ing"
+            elif word.istitle():
+                print(word)
+                words[i] = "UNK-uppercase"
+            elif word.isdigit():
+                print(word + ", UNK-number")
+                words[i] = "UNK-number"
+            elif get_regex_decimal_number().match(word):
+                print(word + ", UNK-decimal-number")
+                words[i] = "UNK-decimal-number"
             else:
+                print(word)
                 words[i] = "UNK"
     return words
 
