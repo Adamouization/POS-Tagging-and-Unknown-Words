@@ -50,10 +50,10 @@ def main() -> None:
         print_number_of_sentences(testing_set, "testing dataset")
 
     # Replace infrequent words with special 'UNK' tags.
-    # training_words = extract_words(training_set)
-    # unique_training_words = remove_list_duplicates(training_words)
-    # training_set = handle_unknown_words(training_set, unique_training_words, is_training_set=True)
-    # testing_set = handle_unknown_words(testing_set, unique_training_words, is_training_set=False)
+    training_words = extract_words(training_set)
+    unique_training_words = remove_list_duplicates(training_words)
+    training_set = handle_unknown_words(training_set, unique_training_words, is_training_set=True)
+    testing_set = handle_unknown_words(testing_set, unique_training_words, is_training_set=False)
 
     # Store all words and all tags from the training dataset in a ordered lists (and make lists without duplicates).
     training_tags = extract_tags(training_set)
@@ -167,22 +167,44 @@ def unknown_words_rules(word: str) -> str:
     :param word: the word to parse.
     :return: the new "UNK-x" tag for the word.
     """
-    if word.startswith('$'):
-        return "UNK-currency"
-    elif word.endswith('ed'):
-        return "UNK-ed"
-    elif word.endswith('ing'):
-        return"UNK-ing"
+    if any(char.isdigit() for char in word):
+        if word.startswith('$'):
+            return "UNK-currency"
+        elif get_regex_decimal_number().match(word):
+            return "UNK-decimal-number"
+        return "UNK-number"
+
+    # Punctuation
+    elif any(char in get_all_possible_punctuations() for char in word):
+        return "UNK-punctuation"
+
+    elif any(char.isupper() for char in word):
+        return "UNK-uppercase"
+
+    elif any(word.endswith(suffix) for suffix in config.NOUN_SUFFIX):
+        return "UNK-noun"
+
+    # Verbs
+    elif any(word.endswith(suffix) for suffix in config.VERB_SUFFIX):
+        return "UNK-verb"
+
+    # Adjectives
+    elif any(word.endswith(suffix) for suffix in config.ADJ_SUFFIX):
+        return "UNK-adj"
+
+    # Adverbs
+    elif any(word.endswith(suffix) for suffix in config.ADV_SUFFIX):
+        return "UNK-adv"
+
+    elif word.istitle():
+        return "UNK-capitalised"
+
     elif word.endswith("'s"):
         return"UNK-apostrophe-s"
-    elif word.istitle():
-        return "UNK-uppercase"
-    elif word.isdigit():
-        return "UNK-number"
-    elif get_regex_decimal_number().match(word):
-        return "UNK-decimal-number"
+
     elif '-' in word:
-        return "UNK-hyphen"
+        return "UNK-hyphenated"
+
     return "UNK"
 
 

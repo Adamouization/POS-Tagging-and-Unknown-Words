@@ -12,6 +12,12 @@ DEFAULT_TRAIN_SIZE = 10000
 DEFAULT_TEST_SIZE = 500
 MAX_SENTENCE_LENGTH = 150
 
+NOUN_SUFFIX = ["action", "age", "ance", "cy", "ee", "ence", "er", "hood", "ion", "ism", "ist", "ity", "ling",
+               "ment", "ness", "or", "ry", "scape", "ship", "dom", "ty"]
+VERB_SUFFIX = ["ate", "ify", "ise", "ize", "ed", "ing"]
+ADJ_SUFFIX = ["able", "ese", "ful", "i", "ian", "ible", "ic", "ish", "ive", "less", "ly", "ous"]
+ADV_SUFFIX = ["ward", "wards", "wise"]
+
 
 # Global variables (set by command-line arguments).
 corpus = "brown"        # Default corpus to use.

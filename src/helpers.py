@@ -1,4 +1,5 @@
 import re
+import string
 
 from nltk import FreqDist
 from nltk.corpus.util import LazyCorpusLoader
@@ -111,6 +112,14 @@ def get_regex_decimal_number() -> re.Pattern:
     :return: a regex pattern to extract decimal numbers from a string.
     """
     return re.compile(r'\d+(?:[,.]\d*)?')
+
+
+def get_all_possible_punctuations() -> set:
+    """
+    Returns a unique list of all possible punctuation symbols in Python.
+    :return: set of all possible punctuation symbols in Python.
+    """
+    return set(string.punctuation)
 
 
 def print_corpus_information(corpus: LazyCorpusLoader, corpus_name: str) -> None:
