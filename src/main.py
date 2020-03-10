@@ -304,8 +304,12 @@ def test_tagger(testing_set: list, unique_training_tags: list, tag_transition_pr
     for sentence in testing_set:
         testing_words = [w for (w, _) in sentence]
         # Calculate the Viterbi matrix.
-        viterbi_matrix = viterbi_algorithm_smoothed(testing_words, unique_training_tags, tag_transition_probabilities,
-                                                    emission_probabilities)
+        viterbi_matrix = viterbi_algorithm_smoothed(
+            testing_words,
+            unique_training_tags,
+            tag_transition_probabilities,
+            emission_probabilities
+        )
         # Use back-tracing to determine the most likely POS tags for each word in the testing dataset.
         predicted_tags.append(backtrace(viterbi_matrix))
     # Link all lists in predicted_tags_per_sentence into a large single list.
@@ -443,21 +447,17 @@ def calculate_accuracy(predicted: list, actual: list) -> float:
     :param actual:
     :return:
     """
-    # Ignore start and end of sentence stags <s> and </s>.
-    predicted_trim = list()
+    # Extract tags from sentence tokens (ang ignore start and end of sentence stags <s> and </s>).
+    predicted_tags = list()
     for sentence in predicted:
         for (w, t) in sentence:
             if w != config.START_TAG_STRING and w != config.END_TAG_STRING:
-                predicted_trim.append((w, t))
-    actual_trim = list()
+                predicted_tags.append(t)
+    actual_tags = list()
     for sentence in actual:
         for (w, t) in sentence:
             if w != config.START_TAG_STRING and w != config.END_TAG_STRING:
-                actual_trim.append((w, t))
-
-    # Extract tags only for comparison.
-    predicted_tags = [t for (_, t) in predicted_trim]
-    actual_tags = [t for (_, t) in actual_trim]
+                actual_tags.append(t)
 
     # Count number of correct predictions.
     correct_tag_counter = 0
