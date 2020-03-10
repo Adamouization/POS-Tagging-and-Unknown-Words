@@ -236,7 +236,7 @@ def train_tagger(training_set: list, training_tags: list) \
     return tag_transition_probabilities, emission_probabilities
 
 
-def get_tag_transition_probabilities(training_set: list, training_tags: list, bins: int = 1000) -> dict:
+def get_tag_transition_probabilities(training_set: list, training_tags: list, bins: int = 100) -> dict:
     """
     Calculates the tag transition probabilities (between a current POS tag and the next POS tag) by smoothing their
     frequency distribution using the Witten-Bell estimate Probability Distribution.
@@ -259,7 +259,7 @@ def get_tag_transition_probabilities(training_set: list, training_tags: list, bi
     return transition_probabilities
 
 
-def get_word_emission_probabilities(training_set: list, training_tags: list, bins: int = 100000000) -> dict:
+def get_word_emission_probabilities(training_set: list, training_tags: list, bins: int = 10000000) -> dict:
     """
     Calculates the word emission probabilities (between the current POS tag and the current word) by smoothing their
     frequency distribution using the Witten-Bell estimate Probability Distribution.
