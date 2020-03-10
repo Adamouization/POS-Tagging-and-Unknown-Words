@@ -95,6 +95,15 @@ def remove_list_duplicates(data: list) -> list:
     return list(set(data))
 
 
+def reverse_list(data: list) -> list:
+    """
+    Reverses a list. Used to place sentence words in order after backtracing.
+    :param data: the lit to reverse.
+    :return: the reversed list.
+    """
+    return data[::-1]
+
+
 def get_regex_decimal_number() -> re.Pattern:
     """
     Regex used to match any decimal number in the string (not using ^ to avoid force matching the entire string).

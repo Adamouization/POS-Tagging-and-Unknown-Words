@@ -40,8 +40,6 @@ def main() -> None:
         if config.debug:
             print_corpus_information(brown, "Floresta Treebank")
 
-    # tagged_sentences = brown.tagged_sents(tagset='universal')
-
     # Start measuring runtime.
     start_time = time.time()
 
@@ -113,9 +111,9 @@ def split_train_test_data(sentences: ConcatenatedCorpusView, train_size: int = c
     return training_set, testing_set
 
 
-def handle_unknown_words(dataset: list, unique_training_words: list, is_training_set: bool = True):
+def handle_unknown_words(dataset: list, unique_training_words: list, is_training_set: bool = True) -> list:
     """
-    Checks for infrequent words and replaces them with appropriate "UNK-x" strings. In the testing set, checks that the
+    Checks for infrequent words and replaces them with appropriate "UNK-x" strings. For the testing set, checks that the
     infrequent word in question is not in the training set.
     :param dataset: the list of sentences.
     :param unique_training_words: the list words without duplicates.
@@ -137,10 +135,10 @@ def handle_unknown_words(dataset: list, unique_training_words: list, is_training
 
 def replace_training_words(dataset: list, hapax_legomenon: list) -> list:
     """
-
-    :param dataset:
-    :param hapax_legomenon:
-    :return:
+    Replaces hapax legomenon (words that appear only once in the data) with a "UNK-x" tag.
+    :param dataset: the training dataset.
+    :param hapax_legomenon: the list of hapax legomenon.
+    :return: the updated dataset.
     """
     for i, sentence in enumerate(dataset):
         for j in range(0, len(sentence)):
@@ -151,10 +149,10 @@ def replace_training_words(dataset: list, hapax_legomenon: list) -> list:
 
 def replace_testing_words(dataset: list, unique_training_words: list) -> list:
     """
-
-    :param dataset:
-    :param unique_training_words:
-    :return:
+    Replaces words from the testing set that do not occur in the training set.
+    :param dataset: the testing dataset.
+    :param unique_training_words: a list of words that occur in the training set (without duplicates).
+    :return: the updated dataset.
     """
     for i, sentence in enumerate(dataset):
         for j in range(0, len(sentence)):
@@ -165,9 +163,9 @@ def replace_testing_words(dataset: list, unique_training_words: list) -> list:
 
 def unknown_words_rules(word: str) -> str:
     """
-
-    :param word:
-    :return:
+    Selects a rule to replace a word based on its spelling.
+    :param word: the word to parse.
+    :return: the new "UNK-x" tag for the word.
     """
     if word.startswith('$'):
         return "UNK-currency"
@@ -191,9 +189,11 @@ def unknown_words_rules(word: str) -> str:
 def train_tagger(training_set: list, training_tags: list) \
         -> Tuple[Dict[Any, Dict[str, Any]], Dict[Any, Dict[str, Any]]]:
     """
-
-    :param training_tags:
-    :param training_set:
+    Calculates the HMM's smoothed tag transition and word emission probabilities. Checks if previously calculated
+    versions exists (loads that into memory using Pickle, otherwise re-calculates the probabilities and saves them to a
+    Pickle file).
+    :param training_tags: the tags in the training set.
+    :param training_set: the training set tokens.
     :return:
     """
     # Count number of tag transitions and get probabilities of tag transitions.
@@ -230,11 +230,12 @@ def train_tagger(training_set: list, training_tags: list) \
 
 def get_tag_transition_probabilities(training_set: list, training_tags: list, bins: int = 1000) -> dict:
     """
-
-    :param training_set:
-    :param training_tags:
-    :param bins:
-    :return:
+    Calculates the tag transition probabilities (between a current POS tag and the next POS tag) by smoothing their
+    frequency distribution using the Witten-Bell estimate Probability Distribution.
+    :param training_tags: the tags in the training set.
+    :param training_set: the training set tokens.
+    :param bins: the number of bins to use when smoothing.
+    :return: the smoothed tag transition probabilities (probability of a POS tag following another POS tag). # todo
     """
     transition_probabilities = dict()
     tags = remove_list_duplicates(training_tags)
@@ -252,11 +253,12 @@ def get_tag_transition_probabilities(training_set: list, training_tags: list, bi
 
 def get_word_emission_probabilities(training_set: list, training_tags: list, bins: int = 100000000) -> dict:
     """
-
-    :param bins:
-    :param training_tags:
-    :param training_set:
-    :return:
+    Calculates the word emission probabilities (between the current POS tag and the current word) by smoothing their
+    frequency distribution using the Witten-Bell estimate Probability Distribution.
+    :param training_tags: the tags in the training set.
+    :param training_set: the training set tokens.
+    :param bins: the number of bins to use when smoothing.
+    :return: the smoothed word emission probabilities (probability of a word given its POS tag). # todo
     """
     emission_probabilities = dict()
 
@@ -274,20 +276,32 @@ def get_word_emission_probabilities(training_set: list, training_tags: list, bin
 
 def test_tagger(testing_set: list, unique_training_tags: list, tag_transition_probabilities: dict,
                 emission_probabilities: dict) -> None:
+    """
+    Execution flow to test the POS tagger using the previously calculated tag transition and word emission
+    probabilities. Loops through each sentence in the test set to calculate its viterbi trellis before using a
+    back-tracing algorithm to predict the most likely sequence of POS tags. The accuracy is calculated after all
+    sentences in the testing dataset have been processed by comparing the predicted tags with the actual tags from
+    the selected corpus.
+    :param testing_set: the training set sentences.
+    :param unique_training_tags: the list tags in the training set without duplicates.
+    :param tag_transition_probabilities:
+    :param emission_probabilities:
+    :return:
+    """
     predicted_tags = list()
     # Loop through sentences rather than words to avoid increasingly small probabilities that
     # eventually reach 0 (smallest float value is e-308 in Python).
     for sentence in testing_set:
         testing_words = [w for (w, _) in sentence]
         # Calculate the Viterbi matrix.
-        viterbi_matrix = viterbi_algorithm(
+        viterbi_trellis = viterbi_algorithm(
             testing_words,
             unique_training_tags,
             tag_transition_probabilities,
             emission_probabilities
         )
         # Use back-tracing to determine the most likely POS tags for each word in the testing dataset.
-        predicted_tags.append(backtrace(viterbi_matrix))
+        predicted_tags.append(backtrace(viterbi_trellis))
 
     # Print the accuracy of the tagger.
     tagging_accuracy = round(calculate_accuracy(predicted_tags, testing_set), 2)
@@ -296,11 +310,20 @@ def test_tagger(testing_set: list, unique_training_tags: list, tag_transition_pr
 
 def viterbi_algorithm(words: list, unique_training_tags: list, tag_transition_probabilities: dict,
                       emission_probabilities: dict) -> dict:
+    """
+    Calculates the viterbi trellis by recording the maximum probability of all POS tags generating each word in the
+    testing untagged sentence (only words, no associated POS).
+    :param words: a sentence from the testing set.
+    :param unique_training_tags:
+    :param tag_transition_probabilities: tag transition probabilities (between a current POS tag and the next POS tag).
+    :param emission_probabilities: word emission probabilities (between the current POS tag and the current word)
+    :return: the Viterbi trellis.
+    """
     # Initialise the Viterbi matrix.
     viterbi_trellis = dict()
     for tag in unique_training_tags:
         viterbi_trellis[tag] = {
-            "words": words,
+            "sentence": words,
             "viterbi_value": [0] * len(words)
         }
 
@@ -314,8 +337,8 @@ def viterbi_algorithm(words: list, unique_training_tags: list, tag_transition_pr
             for tag in viterbi_trellis.keys():
                 viterbi_trellis[tag]["viterbi_value"][i] = \
                     tag_transition_probabilities[config.START_TAG_STRING].prob(tag) * \
-                    emission_probabilities[tag].prob(viterbi_trellis[tag]["words"][i])
-        # All other cases.
+                    emission_probabilities[tag].prob(viterbi_trellis[tag]["sentence"][i])
+        # All other cases in the sentence.
         else:
             for tag in viterbi_trellis.keys():
                 cur_tag_viterbi_values = list()
@@ -325,48 +348,46 @@ def viterbi_algorithm(words: list, unique_training_tags: list, tag_transition_pr
                     cur_tag_viterbi_values.append(cur_viterbi_value)
                 max_viterbi = max(cur_tag_viterbi_values)
                 viterbi_trellis[tag]["viterbi_value"][i] = \
-                    max_viterbi * emission_probabilities[tag].prob(viterbi_trellis[tag]["words"][i])
+                    max_viterbi * emission_probabilities[tag].prob(viterbi_trellis[tag]["sentence"][i])
 
         # Unknown word: never seen in the training set. Naive handling of unknown words: set the max_val to 1/1000
-        # if viterbi_trellis[tag]["words"][i] not in unique_training_words:
+        # if viterbi_trellis[tag]["sentence"][i] not in unique_training_words:
         #     for tag in viterbi_trellis.keys():
         #         viterbi_trellis[tag]["viterbi"][i] = \
-        #             0.001 * emission_probabilities[viterbi_trellis[tag]["words"][i]][tag]
+        #             0.001 * emission_probabilities[viterbi_trellis[tag]["sentence"][i]][tag]
 
     return viterbi_trellis
 
 
-def backtrace(viterbi_matrix: dict) -> list:
+def backtrace(viterbi_trellis: dict) -> list:
     """
-
-    :param viterbi_matrix:
-    :return:
+    Starting from the end of the sentence, select the most likely (highest probability) path of tags leading from the
+    end of the sentence to the beginning.
+    :param viterbi_trellis: the viterbi trellis generated for the sentence being tagged.
+    :return: the (ordered) sequence of most likely POS tags for the given test sentence.
     """
     backwards_predicted_tags = list()
-    sentence_length = len(viterbi_matrix["."]["words"])
-
-    # Start at end of all sentences and back-trace backwards to beginning.
-    for i in range(sentence_length - 2, 0, -1):
-        predicted_tag = None
-        max_viterbi = 0
-        for tag in viterbi_matrix.keys():
-            viterbi_value = viterbi_matrix[tag]["viterbi_value"][i]
-            if viterbi_value > max_viterbi:
-                max_viterbi = viterbi_value
-                predicted_tag = tag
-        backwards_predicted_tags.append((viterbi_matrix[predicted_tag]["words"][i], predicted_tag))
+    # Start at end of all sentences and back-trace towards beginning of sentence.
+    for i in range(len(viterbi_trellis["."]["sentence"]) - 2, 0, -1):
+        cur_predicted_tag = None
+        max_viterbi_value = 0
+        for tag in viterbi_trellis.keys():
+            cur_viterbi_value = viterbi_trellis[tag]["viterbi_value"][i]
+            if cur_viterbi_value > max_viterbi_value:
+                max_viterbi_value = cur_viterbi_value
+                cur_predicted_tag = tag
+        backwards_predicted_tags.append((viterbi_trellis[cur_predicted_tag]["sentence"][i], cur_predicted_tag))
 
     # Reverse the predicted tags to get them back in their original order.
-    predicted_tags = backwards_predicted_tags[::-1]
-    return predicted_tags
+    return reverse_list(backwards_predicted_tags)
 
 
 def calculate_accuracy(predicted: list, actual: list) -> float:
     """
     Compare the tags predicted from the Viterbi back-tracing algorithm to the tagged version of the testing set.
-    :param predicted:
-    :param actual:
-    :return:
+    :param predicted: the POS tags predicted by the tagger.
+    :param actual: the actual sequence of tags extracted from the tagged corpus.
+    :return: the accuracy in percentage.
     """
     # Extract tags from sentence tokens (ang ignore start and end of sentence stags <s> and </s>).
     predicted_tags = list()
