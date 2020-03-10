@@ -8,8 +8,8 @@ from nltk import FreqDist, WittenBellProbDist
 from nltk.corpus import brown, floresta
 from nltk.corpus.reader.util import ConcatenatedCorpusView
 
-import src.config as config
-from src.helpers import *
+import config as config
+from helpers import *
 
 
 def main() -> None:

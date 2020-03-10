@@ -7,7 +7,7 @@ from nltk.corpus.util import LazyCorpusLoader
 import seaborn as sn
 from sklearn.metrics import confusion_matrix
 
-import src.config as config
+import config as config
 
 
 def download_brown_corpus() -> None:
