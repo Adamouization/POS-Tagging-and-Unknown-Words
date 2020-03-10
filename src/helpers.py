@@ -51,7 +51,11 @@ def extract_words(data: list) -> list:
     :param data:
     :return:
     """
-    return [w for (w, _) in data]
+    words = list()
+    for sentence in data:
+        for (w, _) in sentence:
+            words.append(w)
+    return words
 
 
 def extract_tags(data: list) -> list:
@@ -60,16 +64,28 @@ def extract_tags(data: list) -> list:
     :param data:
     :return:
     """
-    return [t for (_, t) in data]
+    tags = list()
+    for sentence in data:
+        for (_, t) in sentence:
+            tags.append(t)
+    return tags
 
 
 def remove_list_duplicates(data: list) -> list:
-    """"""
+    """
 
+    :param data:
+    :return:
+    """
     return list(set(data))
 
 
-def get_regex_decimal_number():
+def get_regex_decimal_number() -> re.Pattern:
+    """
+    Regex used to match any decimal number in the string.
+    Source: https://stackoverflow.com/a/44507054/5609328.
+    :return:
+    """
     return re.compile(r'\d+(?:,\d*)?')
 
 

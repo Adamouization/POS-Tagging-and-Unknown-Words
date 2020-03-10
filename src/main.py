@@ -1,5 +1,4 @@
 import argparse
-from itertools import chain
 import os.path
 import pickle
 from typing import Tuple, Dict, Any
@@ -38,13 +37,6 @@ def main() -> None:
     training_set = handle_unknown_words(training_set, unique_training_words, is_training_set=True)
     testing_set = handle_unknown_words(testing_set, unique_training_words, is_training_set=False)
 
-    # Test the POS tagger on the testing data using the Viterbi back-tracing algorithm.
-    # test_sentences = list(
-    #     tagged_sentences[config.DEFAULT_TRAIN_SIZE:config.DEFAULT_TRAIN_SIZE + config.DEFAULT_TEST_SIZE]
-    # )  # todo use a sentence architecture rather than word.
-    # test_sentences = add_start_and_end_of_sentence_tags(test_sentences)
-    # test_sentences = handle_unknown_words(test_sentences, unique_training_words, is_training_set=False)
-
     # Store all words and all tags from the training dataset in a ordered lists (and make lists without duplicates).
     training_tags = extract_tags(training_set)
     unique_training_tags = remove_list_duplicates(training_tags)
@@ -53,11 +45,7 @@ def main() -> None:
     tag_transition_probabilities, emission_probabilities = train_tagger(training_set, training_tags)
 
     # Test the POS tagger on the testing data using the Viterbi back-tracing algorithm.
-    test_sentences = list(
-        tagged_sentences[config.DEFAULT_TRAIN_SIZE:config.DEFAULT_TRAIN_SIZE + config.DEFAULT_TEST_SIZE]
-    )  # todo use a sentence architecture rather than word.
-    test_sentences = add_start_and_end_of_sentence_tags(test_sentences)
-    test_tagger(testing_set, unique_training_tags, tag_transition_probabilities, emission_probabilities, test_sentences)
+    test_tagger(testing_set, unique_training_tags, tag_transition_probabilities, emission_probabilities)
 
 
 def parse_command_line_arguments() -> None:
@@ -95,85 +83,66 @@ def split_train_test_data(sentences: ConcatenatedCorpusView, train_size: int = c
     training_set = add_start_and_end_of_sentence_tags(training_set)
     testing_set = add_start_and_end_of_sentence_tags(testing_set)
 
-    # Convert embedded lists into a single list.
-    train = list(chain.from_iterable(training_set))
-    test = list(chain.from_iterable(testing_set))
-
-    return train, test
+    return training_set, testing_set
 
 
 def handle_unknown_words(dataset, unique_training_words, is_training_set=True):
-    # Store all words and all tags from the dataset in an ordered list.
+    # Store all words from the dataset in an ordered list.
     words = extract_words(dataset)
-    tags = extract_tags(dataset)
 
     # Get the hapax legomenon of the dataset and replace the words in the the original set with the new 'UNK' words.
     hapax_legomenon = get_hapax_legomenon(words)
     if is_training_set:
-        new_dataset_words = replace_training_words(words, hapax_legomenon)
+        dataset = replace_training_words(dataset, hapax_legomenon)
     else:
-        new_dataset_words = replace_testing_words(words, hapax_legomenon, unique_training_words)
-
-    # Rebuild the original data set with the new word and its associated POS tag.
-    for i in range(0, len(words)):
-        dataset[i] = (new_dataset_words[i], tags[i])
+        dataset = replace_testing_words(dataset, hapax_legomenon, unique_training_words)
 
     return dataset
 
 
-def replace_training_words(words: list, hapax_legomenon) -> list:
-    for i, word in enumerate(words):
-        if word in hapax_legomenon:
-            if word.startswith('$'):
-                print(word + ", UNK-currency")
-                words[i] = "UNK-currency"
-            elif word.endswith('ed'):
-                print(word + ", UNK-ed")
-                words[i] = "UNK-ed"
-            elif word.endswith('ing'):
-                print(word + ", UNK-ing")
-                words[i] = "UNK-ing"
-            elif word.istitle():
-                print(word + ", UNK-uppercase")
-                words[i] = "UNK-uppercase"
-            elif word.isdigit():
-                print(word + ", UNK-number")
-                words[i] = "UNK-number"
-            elif get_regex_decimal_number().match(word):
-                print(word + ", UNK-decimal-number")
-                words[i] = "UNK-decimal-number"
-            else:
-                print(word + ", UNK")
-                words[i] = "UNK"
-    return words
+def replace_training_words(dataset: list, hapax_legomenon) -> list:
+    for i, sentence in enumerate(dataset):
+        for j in range(0, len(sentence)):
+            word = sentence[j][0]
+            if word in hapax_legomenon:
+                if word.startswith('$'):
+                    dataset[i][j] = ("UNK-currency", dataset[i][j][1])
+                elif word.endswith('ed'):
+                    dataset[i][j] = ("UNK-ed", dataset[i][j][1])
+                elif word.endswith('ing'):
+                    dataset[i][j] = ("UNK-ing", dataset[i][j][1])
+                elif word.istitle():
+                    dataset[i][j] = ("UNK-uppercase", dataset[i][j][1])
+                elif word.isdigit():
+                    dataset[i][j] = ("UNK-number", dataset[i][j][1])
+                elif get_regex_decimal_number().match(word):
+                    dataset[i][j] = ("UNK-decimal-number", dataset[i][j][1])
+                else:
+                    dataset[i][j] = ("UNK", dataset[i][j][1])
+    return dataset
 
 
-def replace_testing_words(words, hapax_legomenon, training_words):
+def replace_testing_words(dataset, hapax_legomenon, training_words):
     unique_training_words = remove_list_duplicates(training_words)
-    for i, word in enumerate(words):
-        if (word in hapax_legomenon) and (word not in unique_training_words):
-            if word.startswith('$'):
-                print(word + "UNK-currency")
-                words[i] = "UNK-currency"
-            elif word.endswith('ed'):
-                print(word)
-                words[i] = "UNK-ed"
-            elif word.endswith('ing'):
-                print(word)
-                words[i] = "UNK-ing"
-            elif word.istitle():
-                print(word)
-                words[i] = "UNK-uppercase"
-            elif word.isdigit():
-                print(word + ", UNK-number")
-                words[i] = "UNK-number"
-            elif get_regex_decimal_number().match(word):
-                print(word + ", UNK-decimal-number")
-                words[i] = "UNK-decimal-number"
-            else:
-                print(word)
-                words[i] = "UNK"
-    return words
+    for i, sentence in enumerate(dataset):
+        for j in range(0, len(sentence)):
+            word = sentence[j][0]
+            if (word in hapax_legomenon) and (word not in unique_training_words):
+                if word.startswith('$'):
+                    dataset[i][j] = ("UNK-currency", dataset[i][j][1])
+                elif word.endswith('ed'):
+                    dataset[i][j] = ("UNK-ed", dataset[i][j][1])
+                elif word.endswith('ing'):
+                    dataset[i][j] = ("UNK-ing", dataset[i][j][1])
+                elif word.istitle():
+                    dataset[i][j] = ("UNK-uppercase", dataset[i][j][1])
+                elif word.isdigit():
+                    dataset[i][j] = ("UNK-number", dataset[i][j][1])
+                elif get_regex_decimal_number().match(word):
+                    dataset[i][j] = ("UNK-decimal-number", dataset[i][j][1])
+                else:
+                    dataset[i][j] = ("UNK", dataset[i][j][1])
+    return dataset
 
 
 def train_tagger(training_set: list, training_tags: list) \
@@ -327,27 +296,29 @@ def get_emission_probabilities(training_set: list, training_tags: list, bins: in
 
     tags = remove_list_duplicates(training_tags)
     for tag in tags:
-        words = [w for (w, t) in training_set if t == tag]
+        words = list()
+        for sentence in training_set:
+            for (w, t) in sentence:
+                if t == tag:
+                    words.append(w)
         emission_probabilities[tag] = WittenBellProbDist(FreqDist(words), bins=bins)
 
     return emission_probabilities
 
 
 def test_tagger(testing_set: list, unique_training_tags: list, tag_transition_probabilities: dict,
-                emission_probabilities: dict, test_sentences: list) -> None:
-    predicted_tags_per_sentence = list()
-
+                emission_probabilities: dict) -> None:
+    predicted_tags = list()
     # Loop through sentences rather than words to avoid increasingly small probabilities that
     # eventually reach 0 (smallest float value is e-308 in Python).
-    for sentence in test_sentences:
+    for sentence in testing_set:
         testing_words = [w for (w, _) in sentence]
         # Calculate the Viterbi matrix.
         viterbi_matrix = viterbi_algorithm_smoothed(testing_words, unique_training_tags, tag_transition_probabilities,
                                                     emission_probabilities)
         # Use back-tracing to determine the most likely POS tags for each word in the testing dataset.
-        predicted_tags_per_sentence.append(backtrace(viterbi_matrix))
+        predicted_tags.append(backtrace(viterbi_matrix))
     # Link all lists in predicted_tags_per_sentence into a large single list.
-    predicted_tags = list(chain.from_iterable(predicted_tags_per_sentence))
 
     # viterbi_matrix = viterbi_algorithm_unsmoothed(unique_training_words, unique_training_tags, testing_words,
     # tag_transition_probabilities, emission_probabilities)
@@ -484,25 +455,28 @@ def calculate_accuracy(predicted: list, actual: list) -> float:
     """
     # Ignore start and end of sentence stags <s> and </s>.
     predicted_trim = list()
-    for (w, t) in predicted:
-        if w != config.START_TAG_STRING and w != config.END_TAG_STRING:
-            predicted_trim.append((w, t))
-    actual = [(w, t) for (w, t) in actual if w != config.START_TAG_STRING and w != config.END_TAG_STRING]
-    # actual_trim = list()
-    # for (w, t) in actual:
-    #     if w != config.START_TAG_STRING and w != config.END_TAG_STRING:
-    #         actual_trim.append((w, t))
+    for sentence in predicted:
+        for (w, t) in sentence:
+            if w != config.START_TAG_STRING and w != config.END_TAG_STRING:
+                predicted_trim.append((w, t))
+    actual_trim = list()
+    for sentence in actual:
+        for (w, t) in sentence:
+            if w != config.START_TAG_STRING and w != config.END_TAG_STRING:
+                actual_trim.append((w, t))
 
     # Extract tags only for comparison.
-    predicted_tags = extract_tags(predicted_trim)
-    actual_tags = extract_tags(actual)
+    predicted_tags = [t for (_, t) in predicted_trim]
+    actual_tags = [t for (_, t) in actual_trim]
 
+    # Count number of correct predictions.
     correct_tag_counter = 0
-    for index, (actual_tag, predicted_tag) in enumerate(zip(actual_tags, predicted_tags)):
-        if actual_tag == predicted_tag:
+    for i in range(0, len(actual_tags)):
+        if actual_tags[i] == predicted_tags[i]:
             correct_tag_counter += 1
 
-    return (correct_tag_counter / len(actual)) * 100  # Return in the form of a %.
+    # Calculate percentage of correct predictions.
+    return (correct_tag_counter / len(actual_tags)) * 100
 
 
 # def count_tag_transition_occurrences(tagged_sentences: list) -> dict:
