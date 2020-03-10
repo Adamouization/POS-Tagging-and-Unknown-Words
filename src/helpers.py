@@ -1,8 +1,11 @@
 import re
 import string
 
+import matplotlib.pyplot as plt
 from nltk import FreqDist
 from nltk.corpus.util import LazyCorpusLoader
+import seaborn as sn
+from sklearn.metrics import confusion_matrix
 
 import src.config as config
 
@@ -151,3 +154,12 @@ def print_runtime(runtime):
     :return: None
     """
     print("--- Runtime: {} seconds ---".format(runtime))
+
+
+def plot_confusion_matrix(predicted, actual):
+    cm = confusion_matrix(actual, predicted)
+    fig, ax = plt.subplots()
+    sn.heatmap(cm, cmap="YlGnBu", annot=False, annot_kws={"size": 12})
+    plt.xlabel("Predicted tags", fontsize=12)
+    plt.ylabel("Actual tags", fontsize=12)
+    plt.show()

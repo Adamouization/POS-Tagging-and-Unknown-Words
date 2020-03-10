@@ -173,38 +173,24 @@ def unknown_words_rules(word: str) -> str:
         elif get_regex_decimal_number().match(word):
             return "UNK-decimal-number"
         return "UNK-number"
-
-    # Punctuation
-    elif any(char in get_all_possible_punctuations() for char in word):
+    elif any(char in set(string.punctuation) for char in word):
         return "UNK-punctuation"
-
     elif any(char.isupper() for char in word):
         return "UNK-uppercase"
-
     elif any(word.endswith(suffix) for suffix in config.NOUN_SUFFIX):
         return "UNK-noun"
-
-    # Verbs
     elif any(word.endswith(suffix) for suffix in config.VERB_SUFFIX):
         return "UNK-verb"
-
-    # Adjectives
     elif any(word.endswith(suffix) for suffix in config.ADJ_SUFFIX):
         return "UNK-adj"
-
-    # Adverbs
     elif any(word.endswith(suffix) for suffix in config.ADV_SUFFIX):
         return "UNK-adv"
-
     elif word.istitle():
         return "UNK-capitalised"
-
     elif word.endswith("'s"):
         return"UNK-apostrophe-s"
-
     elif '-' in word:
         return "UNK-hyphenated"
-
     return "UNK"
 
 
@@ -375,7 +361,7 @@ def viterbi_algorithm(words: list, unique_training_tags: list, tag_transition_pr
         # Unknown word: never seen in the training set. Naive handling of unknown words: set the max_val to 1/1000
         # if viterbi_trellis[tag]["sentence"][i] not in unique_training_words:
         #     for tag in viterbi_trellis.keys():
-        #         viterbi_trellis[tag]["viterbi"][i] = \
+        #         viterbi_trellis[tag]["viterbi_value"][i] = \
         #             0.001 * emission_probabilities[viterbi_trellis[tag]["sentence"][i]][tag]
 
     return viterbi_trellis
@@ -422,6 +408,8 @@ def calculate_accuracy(predicted: list, actual: list) -> float:
         for (w, t) in sentence:
             if w != config.START_TAG_STRING and w != config.END_TAG_STRING:
                 actual_tags.append(t)
+
+    plot_confusion_matrix(actual_tags, predicted_tags)
 
     # Count number of correct predictions.
     correct_tag_counter = 0
