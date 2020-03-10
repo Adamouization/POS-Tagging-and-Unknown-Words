@@ -14,5 +14,6 @@ MAX_SENTENCE_LENGTH = 150
 
 
 # Global variables (set by command-line arguments).
+corpus = "brown"        # Default corpus to use.
 recalculate = False     # Recalculate the HMM's tag transition and word emission probability matrices.
 debug = False           # Boolean used to print additional logs for debugging purposes.

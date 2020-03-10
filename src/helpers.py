@@ -18,6 +18,17 @@ def download_brown_corpus() -> None:
     nltk.download('universal_tagset')
 
 
+def download_floresta_corpus() -> None:
+    """
+    Download the portuguese Floresta treebank. Store a version locally.
+    Note: usually locally stored in ~/nltk_data. Can also be stored in the virtual environment's "lib" or "include"
+    directories.
+    :return: None.
+    """
+    import nltk
+    nltk.download('floresta')
+
+
 def get_hapax_legomenon(words, unknown_words_threshold: int = 1) -> list:
     """
     Retrieve a list of words occurring no more than "unknown_words_threshold", which corresponds to the number of words
@@ -93,14 +104,15 @@ def get_regex_decimal_number() -> re.Pattern:
     return re.compile(r'\d+(?:[,.]\d*)?')
 
 
-def print_corpus_information(corpus: LazyCorpusLoader) -> None:
+def print_corpus_information(corpus: LazyCorpusLoader, corpus_name: str) -> None:
     """
     Prints information about an NLTK corpus e.g. the Brown corpus.
+    :param corpus_name:
     :param corpus: the NLTK corpus in use.
     :return: None.
     """
-    print("Number of words in Brown corpus = {}".format(len(corpus.words())))
-    print("Number of sentences in Brown corpus = {}".format(len(corpus.tagged_sents(tagset='universal'))))
+    print("Number of words in {} corpus = {}".format(corpus_name, len(corpus.words())))
+    print("Number of sentences in {} corpus = {}".format(corpus_name, len(corpus.tagged_sents(tagset='universal'))))
 
 
 def print_number_of_sentences(dataset: [list], dataset_name: str) -> None:
@@ -112,3 +124,12 @@ def print_number_of_sentences(dataset: [list], dataset_name: str) -> None:
     """
     counter = sum(x == config.START_TAG_STRING for (x, _) in dataset)
     print("Number of sentences in {}: {}".format(dataset_name, counter))
+
+
+def print_runtime(runtime):
+    """
+    Outputs the runtime to the terminal in seconds (with 2 decimals).
+    :param runtime: The runtime in seconds.
+    :return: None
+    """
+    print("--- Runtime: {} seconds ---".format(runtime))
