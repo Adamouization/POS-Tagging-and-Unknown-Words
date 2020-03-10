@@ -33,7 +33,8 @@ def main() -> None:
         print_number_of_sentences(testing_set, "testing dataset")
 
     # Replace infrequent words with special 'UNK' tags.
-    unique_training_words = remove_list_duplicates(extract_words(training_set))
+    training_words = extract_words(training_set)
+    unique_training_words = remove_list_duplicates(training_words)
     training_set = handle_unknown_words(training_set, unique_training_words, is_training_set=True)
     testing_set = handle_unknown_words(testing_set, unique_training_words, is_training_set=False)
 
@@ -105,44 +106,33 @@ def replace_training_words(dataset: list, hapax_legomenon) -> list:
         for j in range(0, len(sentence)):
             word = sentence[j][0]
             if word in hapax_legomenon:
-                if word.startswith('$'):
-                    dataset[i][j] = ("UNK-currency", dataset[i][j][1])
-                elif word.endswith('ed'):
-                    dataset[i][j] = ("UNK-ed", dataset[i][j][1])
-                elif word.endswith('ing'):
-                    dataset[i][j] = ("UNK-ing", dataset[i][j][1])
-                elif word.istitle():
-                    dataset[i][j] = ("UNK-uppercase", dataset[i][j][1])
-                elif word.isdigit():
-                    dataset[i][j] = ("UNK-number", dataset[i][j][1])
-                elif get_regex_decimal_number().match(word):
-                    dataset[i][j] = ("UNK-decimal-number", dataset[i][j][1])
-                else:
-                    dataset[i][j] = ("UNK", dataset[i][j][1])
+                dataset[i][j] = (unknown_words_rules(word), dataset[i][j][1])  # Cannot overwrite tuple values.
     return dataset
 
 
-def replace_testing_words(dataset, hapax_legomenon, training_words):
-    unique_training_words = remove_list_duplicates(training_words)
+def replace_testing_words(dataset, hapax_legomenon, unique_training_words):
     for i, sentence in enumerate(dataset):
         for j in range(0, len(sentence)):
             word = sentence[j][0]
             if (word in hapax_legomenon) and (word not in unique_training_words):
-                if word.startswith('$'):
-                    dataset[i][j] = ("UNK-currency", dataset[i][j][1])
-                elif word.endswith('ed'):
-                    dataset[i][j] = ("UNK-ed", dataset[i][j][1])
-                elif word.endswith('ing'):
-                    dataset[i][j] = ("UNK-ing", dataset[i][j][1])
-                elif word.istitle():
-                    dataset[i][j] = ("UNK-uppercase", dataset[i][j][1])
-                elif word.isdigit():
-                    dataset[i][j] = ("UNK-number", dataset[i][j][1])
-                elif get_regex_decimal_number().match(word):
-                    dataset[i][j] = ("UNK-decimal-number", dataset[i][j][1])
-                else:
-                    dataset[i][j] = ("UNK", dataset[i][j][1])
+                dataset[i][j] = (unknown_words_rules(word), dataset[i][j][1])  # Cannot overwrite tuple values.
     return dataset
+
+
+def unknown_words_rules(word):
+    if word.startswith('$'):
+        return "UNK-currency"
+    elif word.endswith('ed'):
+        return "UNK-ed"
+    elif word.endswith('ing'):
+        return"UNK-ing"
+    elif word.istitle():
+        return "UNK-uppercase"
+    elif word.isdigit():
+        return "UNK-number"
+    elif get_regex_decimal_number().match(word):
+        return "UNK-decimal-number"
+    return "UNK"
 
 
 def train_tagger(training_set: list, training_tags: list) \
