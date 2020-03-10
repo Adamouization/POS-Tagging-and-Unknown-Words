@@ -213,8 +213,6 @@ def train_tagger(training_set: list, training_tags: list) \
         print("File '{}' already exists, loaded from memory.".format(transition_probabilities_file_path))
     else:
         tag_transition_probabilities = get_tag_transition_probabilities(training_set, training_tags)
-        # transition_occurrences = count_tag_transition_occurrences(training_tags)
-        # tag_transition_probabilities = get_tag_transition_probability(transition_occurrences)
         with open(transition_probabilities_file_path, 'wb') as f:
             pickle.dump(tag_transition_probabilities, f)
         print("File '{0}' regenerated and saved at {0}.".format(transition_probabilities_file_path))
