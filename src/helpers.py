@@ -20,10 +20,11 @@ def download_brown_corpus() -> None:
 
 def get_hapax_legomenon(words, unknown_words_threshold: int = 1) -> list:
     """
-
-    :param words:
-    :param unknown_words_threshold:
-    :return:
+    Retrieve a list of words occurring no more than "unknown_words_threshold", which corresponds to the number of words
+    occurring once in a dataset.
+    :param words: list of words.
+    :param unknown_words_threshold: observation frequency of words.
+    :return: list of hapax legomenon.
     """
     hapax_legomenon = list()
     freq_dist_words = FreqDist(words)
@@ -47,7 +48,7 @@ def add_start_and_end_of_sentence_tags(data: list) -> list:
 
 def extract_words(data: list) -> list:
     """
-
+    Extract words from the tokens of a sentence from the data.
     :param data:
     :return:
     """
@@ -60,9 +61,9 @@ def extract_words(data: list) -> list:
 
 def extract_tags(data: list) -> list:
     """
-
-    :param data:
-    :return:
+    Extract tags from the tokens of a sentence from the data.
+    :param data: a list of sentence (list of tokens)
+    :return: a list of tags
     """
     tags = list()
     for sentence in data:
@@ -73,9 +74,9 @@ def extract_tags(data: list) -> list:
 
 def remove_list_duplicates(data: list) -> list:
     """
-
-    :param data:
-    :return:
+    Removes duplicate values from a list by converting it to a set and then back to a list.
+    :param data: the data to remove the duplicates from.
+    :return: a list of unique values.
     """
     return list(set(data))
 
@@ -84,16 +85,16 @@ def get_regex_decimal_number() -> re.Pattern:
     """
     Regex used to match any decimal number in the string.
     Source: https://stackoverflow.com/a/44507054/5609328.
-    :return:
+    :return: a regex to extract decimal numbers from a string.
     """
     return re.compile(r'\d+(?:,\d*)?')
 
 
 def print_corpus_information(corpus: LazyCorpusLoader) -> None:
     """
-
-    :param corpus:
-    :return:
+    Prints information about an NLTK corpus e.g. the Brown corpus.
+    :param corpus: the NLTK corpus in use.
+    :return: None.
     """
     print("Number of words in Brown corpus = {}".format(len(corpus.words())))
     print("Number of sentences in Brown corpus = {}".format(len(corpus.tagged_sents(tagset='universal'))))
@@ -101,10 +102,10 @@ def print_corpus_information(corpus: LazyCorpusLoader) -> None:
 
 def print_number_of_sentences(dataset: [list], dataset_name: str) -> None:
     """
-
-    :param dataset:
-    :param dataset_name:
-    :return:
+    Prints the number of sentences in the dataset.
+    :param dataset: a list.
+    :param dataset_name: a string to associate the number of sentences to a dataset.
+    :return: None.
     """
     counter = sum(x == config.START_TAG_STRING for (x, _) in dataset)
     print("Number of sentences in {}: {}".format(dataset_name, counter))
