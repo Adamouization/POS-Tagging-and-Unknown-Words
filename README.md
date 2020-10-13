@@ -1,4 +1,4 @@
-# NLP: POS Tagger with Unknown Words Handling
+# NLP: POS Tagger with Unknown Words Handling [![HitCount](http://hits.dwyl.com/Adamouization/POS-Tagging-and-Unknown-Words.svg)](http://hits.dwyl.com/Adamouization/POS-Tagging-and-Unknown-Words) [![GitHub license](https://img.shields.io/github/license/Adamouization/POS-Tagging-and-Unknown-Words)](https://github.com/Adamouization/POS-Tagging-and-Unknown-Words/blob/master/LICENSE)
 
 This repository contains code developed for a Part Of Speech (POS) tagger using the Viberbi algorithm to predict POS tags in sentences in the Brown corpus. It contains the following features:
   * HMM word emission frequency smoothing;
